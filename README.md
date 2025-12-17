@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Curriculum Dashboard (Next.js + Supabase)
 
-## Getting Started
+Full-stack dashboard to commercialize drone, AR/VR, and 3D printing curriculum for schools. Includes marketing landing, Supabase Auth login, role-based dashboards, shopping page, and Supabase schema/seed script for the default admin.
 
-First, run the development server:
-
-```bash
+### Quickstart
+1) Install deps
+```
+npm install
+```
+2) Copy env and fill keys (keys provided by you)
+```
+cp .env.local.example .env.local
+```
+3) Run dev server
+```
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Supabase setup
+- Apply schema: `supabase/schema.sql` (profiles, curriculum_modules, products, orders, order_items, analytics_events + RLS).
+- Buckets: `curriculum-assets` for videos/code/docs, `product-images` for product photos.
+- Default admin: after env is set, run  
+```
+npm run seed:admin
+```
+This uses `SUPABASE_SERVICE_ROLE_KEY` to create `sandipanroyyyyy@gmail.com / 12345678` and upsert a profile with role `admin`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### App routes
+- `/` – Marketing landing with hero, features, ads/promos (₹9,999/year curriculum, 15% off kit, free AR/VR module), testimonials, and featured modules/products.
+- `/login` – Supabase Auth (login + signup). Redirects to admin/customer dashboards based on profile role. Greets with “Hi {full_name}”.
+- `/admin` – Admin dashboard: manage curriculum/products, orders, promotions, and view analytics.
+- `/customer` – Customer dashboard: browse curriculum by grade/subject/module, access assets, shop products, and view order history.
+- `/shop` – Shopping page for drones, AR/VR kits, and 3D printer bundles.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Tech
+- Next.js (App Router, TypeScript, Tailwind, Geist fonts)
+- Supabase Auth + Database + Storage
+- Client Supabase helper at `src/lib/supabaseClient.ts`
 
-## Learn More
+### Vercel deploy
+Vercel is the recommended host for Next.js.
 
-To learn more about Next.js, take a look at the following resources:
+1) Push this repo to GitHub/GitLab/Bitbucket.
+2) In Vercel: **Add New -> Project** and import the repo.
+3) Framework preset: **Next.js** (auto-detected).
+4) Set environment variables in Vercel -> Project -> Settings -> Environment Variables:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `NEXT_PUBLIC_DEFAULT_ADMIN_EMAIL`
+   - `NEXT_PUBLIC_SITE_URL` (used for Supabase email redirect)
+   - `OPENAI_API_KEY` (only needed for the chat assistant)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Optional:
+- `NEXT_PUBLIC_DEFAULT_ADMIN_NAME`
+- `SUPABASE_SERVICE_ROLE_KEY` (only needed if you run `npm run seed:admin` locally)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Node version: this repo sets `engines.node` to `20.x` in `package.json`.
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Notes
+- Update `next.config.ts` if you host images elsewhere (currently allows Unsplash + Supabase storage).
+- If RLS blocks profile or data access, ensure your `profiles` table has the logging-in user and role set. Use the seed script or insert manually.

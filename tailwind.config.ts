@@ -10,7 +10,18 @@ export default {
     extend: {
       colors: {
         background: "var(--background)",
+        surface: "var(--surface)",
+        card: "var(--card)",
+        accent: "var(--accent)",
+        "accent-strong": "var(--accent-strong)",
         foreground: "var(--foreground)",
+      },
+      boxShadow: {
+        glow: "0 10px 50px var(--glow)",
+      },
+      backgroundImage: {
+        "hero-grid":
+          "radial-gradient(circle at 25px 25px, rgba(255,255,255,0.06) 2px, transparent 0)",
       },
     },
   },
