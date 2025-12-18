@@ -75,13 +75,13 @@ export default function CustomerPage() {
       if (!user) return;
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("full_name, role")
+        .select("full_name, role, grade")
         .eq("id", user.id)
         .maybeSingle();
       const derivedRole = profileData?.role ?? user.user_metadata.role ?? "customer";
       setRole(derivedRole);
       setFullName(profileData?.full_name ?? user.user_metadata.full_name ?? user.email ?? "Customer");
-      const gradeFromMeta = profileData?.grade ?? user.user_metadata?.grade ?? null;
+      const gradeFromMeta = (profileData as { grade?: string } | null)?.grade ?? user.user_metadata?.grade ?? null;
       if (gradeFromMeta) {
         setGradeFilter(gradeFromMeta);
         setUserGrade(gradeFromMeta);
