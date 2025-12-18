@@ -1,6 +1,5 @@
 import type { Product } from "@/types";
 
-export const PRODUCT_STORAGE_KEY = "admin-product-rows";
 export const CART_STORAGE_KEY = "shop-cart";
 
 export const products: Product[] = [

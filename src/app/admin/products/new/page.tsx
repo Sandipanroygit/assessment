@@ -101,7 +101,9 @@ export default function NewProductPage() {
       const { error } = await supabase.from("products").insert(insertPayload);
 
       if (error) {
-        if (/gallery_urls/i.test(error.message || "")) {
+        const isGalleryErr = /gallery_urls/i.test(error.message || "");
+        const isBadReq = (error as { status?: number })?.status === 400;
+        if (isGalleryErr || isBadReq) {
           const { error: retryError } = await supabase.from("products").insert({
             ...insertPayload,
             gallery_urls: undefined,
@@ -113,20 +115,6 @@ export default function NewProductPage() {
         } else {
           setStatus(`Unable to save to database: ${error.message}`);
           return;
-        }
-      }
-
-      // Cache locally so the shop can show the new product even if Supabase is offline
-      if (typeof window !== "undefined") {
-        try {
-          const cacheRaw = localStorage.getItem("admin-product-rows");
-          const cache = cacheRaw ? JSON.parse(cacheRaw) : [];
-          const nextCache = Array.isArray(cache)
-            ? [{ ...newProduct, galleryData: galleryUrls, gallery: galleryUrls.length ? galleryUrls : undefined }, ...cache]
-            : [newProduct];
-          localStorage.setItem("admin-product-rows", JSON.stringify(nextCache));
-        } catch {
-          // ignore cache errors
         }
       }
 
