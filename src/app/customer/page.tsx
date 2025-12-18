@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import type { CurriculumModule } from "@/types";
@@ -21,7 +21,7 @@ export default function CustomerPage() {
   const [docExpanded, setDocExpanded] = useState(false);
   const [dataStatus, setDataStatus] = useState<string | null>(null);
 
-  const decodeDataUrl = (url?: string) => {
+  const decodeDataUrl = useCallback((url?: string) => {
     if (!url || !url.startsWith("data:")) return null;
     const commaIndex = url.indexOf(",");
     if (commaIndex === -1) return null;
@@ -31,9 +31,9 @@ export default function CustomerPage() {
     } catch {
       return null;
     }
-  };
+  }, []);
 
-  const encodeToBase64 = (text: string) => {
+  const encodeToBase64 = useCallback((text: string) => {
     if (typeof window === "undefined") {
       return Buffer.from(text, "utf-8").toString("base64");
     }
@@ -42,9 +42,9 @@ export default function CustomerPage() {
     } catch {
       return btoa(text);
     }
-  };
+  }, []);
 
-  const enhanceModule = (module: CurriculumModule): CurriculumModule => {
+  const enhanceModule = useCallback((module: CurriculumModule): CurriculumModule => {
     let codeSnippet = module.codeSnippet;
     let assets = module.assets ?? [];
     const codeIndex = assets.findIndex((a) => a.type === "code");
@@ -65,7 +65,7 @@ export default function CustomerPage() {
     }
 
     return { ...module, codeSnippet, assets };
-  };
+  }, [decodeDataUrl, encodeToBase64]);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -113,7 +113,7 @@ export default function CustomerPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [enhanceModule]);
 
   const filteredModules = useMemo(() => {
     return modules.filter((m) => {

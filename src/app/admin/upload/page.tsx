@@ -28,7 +28,7 @@ export default function UploadCurriculumPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setStatus("Saving to database...");
-    let finalCode = pythonCode;
+    const finalCode = pythonCode;
     try {
       const { data: authData } = await supabase.auth.getUser();
       if (!authData.user) {
