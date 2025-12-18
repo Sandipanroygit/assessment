@@ -82,6 +82,10 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
     notFound();
   }
 
+  if (!product) {
+    return null;
+  }
+
   const addToCart = () => {
     const next = (() => {
       const existing = cart.find((item) => item.id === product.id);
