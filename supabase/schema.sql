@@ -27,6 +27,7 @@ create table if not exists public.products (
   name text not null,
   description text,
   image_url text,
+  gallery_urls jsonb default '[]',
   price numeric not null,
   stock integer default 0,
   delivery_eta text,

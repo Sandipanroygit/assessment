@@ -71,29 +71,63 @@ export default function NewProductPage() {
       }
 
       let imageUrl: string | null = null;
-      const primaryFile = form.galleryFiles[0];
-      if (primaryFile) {
-        imageUrl = await uploadFileToBucket({
-          bucket: "product-images",
-          file: primaryFile,
-          pathPrefix: `${authData.user.id}`,
-          fileName: primaryFile.name,
-        });
+      let galleryUrls: string[] = [];
+      const filesToUpload = form.galleryFiles.slice(0, 3);
+      if (filesToUpload.length) {
+        galleryUrls = await Promise.all(
+          filesToUpload.map((file) =>
+            uploadFileToBucket({
+              bucket: "product-images",
+              file,
+              pathPrefix: `${authData.user.id}`,
+              fileName: file.name,
+            }),
+          ),
+        );
+        imageUrl = galleryUrls[0] ?? null;
       }
 
-      const { error } = await supabase.from("products").insert({
+      const insertPayload = {
         name: newProduct.name,
         description: newProduct.description,
         image_url: imageUrl,
+        gallery_urls: galleryUrls,
         price: newProduct.price,
         stock: newProduct.stock,
         delivery_eta: newProduct.deliveryEta,
         featured: false,
-      });
+      };
+
+      const { error } = await supabase.from("products").insert(insertPayload);
 
       if (error) {
-        setStatus(`Unable to save to database: ${error.message}`);
-        return;
+        if (/gallery_urls/i.test(error.message || "")) {
+          const { error: retryError } = await supabase.from("products").insert({
+            ...insertPayload,
+            gallery_urls: undefined,
+          });
+          if (retryError) {
+            setStatus(`Unable to save to database: ${retryError.message}`);
+            return;
+          }
+        } else {
+          setStatus(`Unable to save to database: ${error.message}`);
+          return;
+        }
+      }
+
+      // Cache locally so the shop can show the new product even if Supabase is offline
+      if (typeof window !== "undefined") {
+        try {
+          const cacheRaw = localStorage.getItem("admin-product-rows");
+          const cache = cacheRaw ? JSON.parse(cacheRaw) : [];
+          const nextCache = Array.isArray(cache)
+            ? [{ ...newProduct, galleryData: galleryUrls, gallery: galleryUrls.length ? galleryUrls : undefined }, ...cache]
+            : [newProduct];
+          localStorage.setItem("admin-product-rows", JSON.stringify(nextCache));
+        } catch {
+          // ignore cache errors
+        }
       }
 
       setStatus(`Saved ${form.name || "product"} to shared catalogue.`);

@@ -101,7 +101,7 @@ export default function ShopPage() {
               Add items to cart and proceed to checkout. Orders sync to your dashboard for tracking.
             </p>
         </div>
-        <Link href="/" className="px-4 py-2 rounded-xl bg-accent text-slate-900 font-semibold shadow-glow">
+        <Link href="/" className="px-4 py-2 rounded-xl bg-accent text-true-white font-semibold shadow-glow">
           Go to homepage
         </Link>
       </div>
@@ -143,7 +143,7 @@ export default function ShopPage() {
               <p className="text-xs text-slate-400">Expected: {product.expectedDelivery}</p>
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <button
-                  className="w-full py-2 rounded-lg bg-accent text-slate-900 font-semibold shadow-glow"
+                  className="w-full py-2 rounded-lg bg-accent text-true-white font-semibold shadow-glow"
                   onClick={() => addToCart(product.id)}
                 >
                   Add to cart
@@ -162,7 +162,7 @@ export default function ShopPage() {
       </main>
       <>
         <button
-          className="fixed bottom-6 right-6 h-12 px-4 rounded-full bg-accent text-slate-900 font-semibold shadow-glow flex items-center gap-2"
+          className="fixed bottom-6 right-6 h-12 px-4 rounded-full bg-accent text-true-white font-semibold shadow-glow flex items-center gap-2"
           onClick={() => setCartOpen(true)}
         >
           Cart ({cart.reduce((sum, item) => sum + item.qty, 0)})

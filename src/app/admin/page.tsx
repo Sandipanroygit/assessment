@@ -12,7 +12,7 @@ type Profile = { full_name?: string; role?: string };
 const orderActions = ["Track status", "View receipts", "Export reports"];
 
 const gradeOptions = ["Grade 5", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
-const subjectOptions = ["Physics", "Maths", "Computer Science", "Environment System & Society (ESS)", "Design Technology"];
+const subjectOptions = ["Physics", "Mathematics", "Computer Science", "Environment System & Society (ESS)", "Design Technology"];
 
 const isMissingTableSchemaCacheError = (message: string) =>
   message.toLowerCase().includes("schema cache") && message.toLowerCase().includes("could not find the table");
@@ -546,37 +546,61 @@ export default function AdminPage() {
                   };
 
                   let nextImageUrl: string | null | undefined = undefined;
+                  let nextGalleryUrls: string[] | undefined = undefined;
                   const hasNewImages = editForm.galleryData.length > 0;
 
                   if (editForm.removeImage) {
                     nextImageUrl = null;
+                    nextGalleryUrls = [];
                   } else if (hasNewImages) {
                     const { data: authData } = await supabase.auth.getUser();
                     const userId = authData.user?.id ?? "anonymous";
-                    const fileName = editForm.galleryNames[0] || editForm.imageName || "product-image.jpg";
-                    const file = dataUrlToFile(editForm.galleryData[0]!, fileName);
-                    nextImageUrl = await uploadFileToBucket({
-                      bucket: "product-images",
-                      file,
-                      pathPrefix: userId,
-                      fileName,
+                    const files = editForm.galleryData.slice(0, 3).map((dataUrl, idx) => {
+                      const name = editForm.galleryNames[idx] || editForm.galleryNames[0] || editForm.imageName || `product-image-${idx + 1}.jpg`;
+                      return dataUrlToFile(dataUrl, name);
                     });
+                    const uploaded = await Promise.all(
+                      files.map((file) =>
+                        uploadFileToBucket({
+                          bucket: "product-images",
+                          file,
+                          pathPrefix: userId,
+                          fileName: file.name,
+                        }),
+                      ),
+                    );
+                    nextGalleryUrls = uploaded;
+                    nextImageUrl = uploaded[0] ?? "";
                   }
 
                   if (typeof nextImageUrl !== "undefined") {
                     payload.image_url = nextImageUrl;
                   }
+                  if (typeof nextGalleryUrls !== "undefined") {
+                    payload.gallery_urls = nextGalleryUrls;
+                  }
 
                   const { error } = await supabase.from("products").update(payload).eq("id", editingId);
                   if (error) {
-                    setDataStatus(`Save failed: ${error.message}`);
-                    return;
+                    if (/gallery_urls/i.test(error.message || "")) {
+                      const retryPayload = { ...payload };
+                      delete (retryPayload as Record<string, unknown>).gallery_urls;
+                      const { error: retryError } = await supabase.from("products").update(retryPayload).eq("id", editingId);
+                      if (retryError) {
+                        setDataStatus(`Save failed: ${retryError.message}`);
+                        return;
+                      }
+                    } else {
+                      setDataStatus(`Save failed: ${error.message}`);
+                      return;
+                    }
                   }
 
                   setProductRows((prev) =>
                     prev.map((p) => {
                       if (p.id !== editingId) return p;
                       const nextImage = nextImageUrl === null ? "" : nextImageUrl || p.image;
+                      const nextGallery = nextGalleryUrls ?? p.gallery ?? [];
                       return {
                         ...p,
                         name: editForm.name,
@@ -585,6 +609,8 @@ export default function AdminPage() {
                         expectedDelivery: editForm.expectedDelivery,
                         stock: Number(editForm.stock) || 0,
                         image: nextImage,
+                        gallery: nextGallery,
+                        galleryData: nextGallery,
                       };
                     }),
                   );
@@ -601,6 +627,7 @@ export default function AdminPage() {
                     removeImage: false,
                     galleryData: [],
                     galleryNames: [],
+                    removeImage: false,
                   });
                   setDataStatus(null);
                 } catch (err) {

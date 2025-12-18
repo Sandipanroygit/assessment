@@ -8,7 +8,7 @@ import { uploadFileToBucket } from "@/lib/supabaseData";
 import type { CurriculumModule } from "@/types";
 
 const grades = ["Grade 5", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
-const subjects = ["Physics", "Maths", "Computer Science", "Environment System & Society (ESS)", "Design Technology"];
+const subjects = ["Physics", "Mathematics", "Computer Science", "Environment System & Society (ESS)", "Design Technology"];
 
 export default function UploadCurriculumPage() {
   const router = useRouter();

@@ -73,6 +73,18 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
     "https://images.unsplash.com/photo-1508615039623-a25605d2b022?auto=format&fit=crop&w=800&q=80";
   const highlights = product?.highlights ?? [];
 
+  useEffect(() => {
+    if (gallery.length <= 1) return;
+    const id = window.setInterval(() => {
+      setGalleryIndex((idx) => (idx + 1) % gallery.length);
+    }, 5000);
+    return () => window.clearInterval(id);
+  }, [gallery]);
+
+  useEffect(() => {
+    setGalleryIndex(0);
+  }, [product?.id]);
+
   if (!product && !storageChecked) {
     // wait for localStorage hydration before deciding notFound
     return null;
@@ -129,14 +141,14 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                 <>
                   <button
                     aria-label="Previous image"
-                    className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/40 text-white grid place-items-center"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 h-16 w-16 text-white text-4xl font-bold drop-shadow"
                     onClick={() => setGalleryIndex((i) => (i - 1 + gallery.length) % gallery.length)}
                   >
                     ‹
                   </button>
                   <button
                     aria-label="Next image"
-                    className="absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/40 text-white grid place-items-center"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-16 w-16 text-white text-4xl font-bold drop-shadow"
                     onClick={() => setGalleryIndex((i) => (i + 1) % gallery.length)}
                   >
                     ›
@@ -232,7 +244,7 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
             </div>
             <div className="grid gap-2">
               <button
-                className="w-full py-3 rounded-lg bg-accent text-slate-900 font-semibold shadow-glow"
+                className="w-full py-3 rounded-lg bg-accent text-true-white font-semibold shadow-glow"
                 onClick={addToCart}
               >
                 Add to cart
@@ -260,7 +272,7 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
                 <li key={point}>{point}</li>
               ))}
             </ul>
-            <div className="rounded-xl border border-red-400/40 bg-red-500/10 p-3 text-xs text-red-100">
+            <div className="rounded-xl border border-red-500/60 bg-red-500/10 p-3 text-xs text-red-400">
               Since this is a DIY kit, COD/returns/replacements are not available for this product.
             </div>
             <div className="flex gap-2">

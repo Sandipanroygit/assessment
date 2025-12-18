@@ -160,16 +160,16 @@ export default function LoginPage() {
           <div className="flex gap-2 bg-white/5 p-1 rounded-xl">
             <button
               onClick={() => setMode("login")}
-              className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${
-                mode === "login" ? "bg-accent text-slate-900 shadow-glow" : "text-white"
-              }`}
-            >
+                className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${
+                  mode === "login" ? "bg-accent text-true-white shadow-glow" : "text-white"
+                }`}
+              >
               Log In
             </button>
             <button
               onClick={() => setMode("signup")}
               className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${
-                mode === "signup" ? "bg-accent text-slate-900 shadow-glow" : "text-white"
+                mode === "signup" ? "bg-accent text-true-white shadow-glow" : "text-white"
               }`}
             >
               Sign Up
@@ -180,7 +180,7 @@ export default function LoginPage() {
             <label className="block text-sm text-slate-300 space-y-2">
               Role
               <select
-                className="w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
+                className="w-full rounded-xl border border-slate-500/70 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
                 value={role}
                 onChange={(e) => handleRoleChange(e.target.value as UserRole)}
               >
@@ -199,7 +199,7 @@ export default function LoginPage() {
               Full name
               <input
                 type="text"
-                className="w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
+                className="w-full rounded-xl border border-slate-500/70 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
                 placeholder="Your name"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
@@ -211,7 +211,7 @@ export default function LoginPage() {
             <label className="block text-sm text-slate-300 space-y-2">
               Grade
               <select
-                className="w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
+                className="w-full rounded-xl border border-slate-500/70 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
                 value={grade}
                 onChange={(e) => setGrade(e.target.value)}
               >
@@ -228,7 +228,7 @@ export default function LoginPage() {
             Email
             <input
               type="email"
-              className="w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
+              className="w-full rounded-xl border border-slate-500/70 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -238,7 +238,7 @@ export default function LoginPage() {
             Password
             <input
               type="password"
-              className="w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
+              className="w-full rounded-xl border border-slate-500/70 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -253,7 +253,7 @@ export default function LoginPage() {
           <button
             onClick={mode === "login" ? handleLogin : handleSignup}
             disabled={loading}
-            className="w-full py-3 rounded-xl bg-accent text-slate-900 font-semibold shadow-glow hover:translate-y-[-1px] transition-transform disabled:opacity-70"
+            className="w-full py-3 rounded-xl bg-accent text-true-white font-semibold shadow-glow hover:translate-y-[-1px] transition-transform disabled:opacity-70"
           >
             {loading ? "Please wait..." : mode === "login" ? "Log In" : "Create account"}
           </button>

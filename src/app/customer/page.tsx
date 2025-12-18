@@ -12,6 +12,7 @@ export default function CustomerPage() {
   const [fullName, setFullName] = useState("Customer");
   const [role, setRole] = useState<string>("customer");
   const [gradeFilter, setGradeFilter] = useState<string>("all");
+  const [userGrade, setUserGrade] = useState<string | null>(null);
   const [subjectFilter, setSubjectFilter] = useState<string>("all");
   const [modules, setModules] = useState<CurriculumModule[]>([]);
   const [selectedModule, setSelectedModule] = useState<CurriculumModule | null>(null);
@@ -80,8 +81,10 @@ export default function CustomerPage() {
       const derivedRole = profileData?.role ?? user.user_metadata.role ?? "customer";
       setRole(derivedRole);
       setFullName(profileData?.full_name ?? user.user_metadata.full_name ?? user.email ?? "Customer");
-      if (user.user_metadata?.grade) {
-        setGradeFilter(user.user_metadata.grade);
+      const gradeFromMeta = profileData?.grade ?? user.user_metadata?.grade ?? null;
+      if (gradeFromMeta) {
+        setGradeFilter(gradeFromMeta);
+        setUserGrade(gradeFromMeta);
       }
 
       // If an admin somehow lands here, redirect to the admin control room.
@@ -115,13 +118,22 @@ export default function CustomerPage() {
     };
   }, [enhanceModule]);
 
+  const gradeOptions = useMemo(() => {
+    if (userGrade) return [userGrade];
+    const uniqueGrades = Array.from(new Set(modules.map((m) => m.grade)));
+    return ["all", ...uniqueGrades];
+  }, [modules, userGrade]);
+
   const filteredModules = useMemo(() => {
     return modules.filter((m) => {
-      const gradeMatch = gradeFilter === "all" || m.grade === gradeFilter;
+      const effectiveGrade = userGrade ?? gradeFilter;
+      const gradeMatch = effectiveGrade === "all" || m.grade === effectiveGrade;
       const subjectMatch = subjectFilter === "all" || m.subject === subjectFilter;
       return gradeMatch && subjectMatch;
     });
-  }, [gradeFilter, subjectFilter, modules]);
+  }, [gradeFilter, subjectFilter, modules, userGrade]);
+
+  const formatSubject = (subject: string) => (subject.toLowerCase() === "maths" ? "Mathematics" : subject);
 
   const roleLabel = role === "teacher" ? "Teacher" : "Student";
   const roleSubline = "Browse curriculum for your grade. View code and download files.";
@@ -171,7 +183,27 @@ export default function CustomerPage() {
     setDocExpanded(false);
   }, [selectedModule]);
 
-  const downloadCode = () => {
+  const triggerDownload = async (url: string, filename: string) => {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.click();
+    }
+  };
+
+  const downloadCode = async () => {
     if (!selectedModule) return;
     if (selectedModule.codeSnippet) {
       const blob = new Blob([selectedModule.codeSnippet], { type: "text/plain" });
@@ -185,21 +217,15 @@ export default function CustomerPage() {
     }
     const codeAsset = selectedModule.assets.find((a) => a.type === "code");
     if (codeAsset?.url) {
-      const a = document.createElement("a");
-      a.href = codeAsset.url;
-      a.download = codeAsset.label || "code.py";
-      a.click();
+      await triggerDownload(codeAsset.url, codeAsset.label || "code.py");
     }
   };
 
-  const downloadDoc = () => {
+  const downloadDoc = async () => {
     if (!selectedModule) return;
     const docAsset = selectedModule.assets.find((a) => a.type === "doc");
     if (docAsset?.url) {
-      const a = document.createElement("a");
-      a.href = docAsset.url;
-      a.download = docAsset.label || "document.pdf";
-      a.click();
+      await triggerDownload(docAsset.url, docAsset.label || "document");
     }
   };
 
@@ -275,9 +301,9 @@ export default function CustomerPage() {
               className="w-full rounded-lg bg-white/5 border border-slate-400/60 px-3 py-2"
               value={gradeFilter}
               onChange={(e) => setGradeFilter(e.target.value)}
+              disabled={!!userGrade}
             >
-              <option value="all">All</option>
-              {Array.from(new Set(modules.map((m) => m.grade))).map((g) => (
+              {gradeOptions.map((g) => (
                 <option key={g} value={g}>
                   {g}
                 </option>
@@ -294,7 +320,7 @@ export default function CustomerPage() {
               <option value="all">All</option>
               {Array.from(new Set(modules.map((m) => m.subject))).map((s) => (
                 <option key={s} value={s}>
-                  {s}
+                  {formatSubject(s)}
                 </option>
               ))}
             </select>
@@ -317,7 +343,7 @@ export default function CustomerPage() {
             <div key={module.id} className="glass-panel rounded-2xl p-5 space-y-3 hover:border-accent-strong">
               <div className="flex items-center justify-between text-xs text-accent-strong uppercase tracking-[0.2em]">
                 <span>Grade {module.grade}</span>
-                <span>{module.subject}</span>
+                <span>{formatSubject(module.subject)}</span>
               </div>
               <h3 className="text-lg font-semibold text-white">{module.title}</h3>
               <button
@@ -340,28 +366,10 @@ export default function CustomerPage() {
 
       {selectedModule && (
         <section id="code" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-semibold text-white">MODULE MATERIALS</h2>
-              <p className="text-xl text-slate-100">{selectedModule.title}</p>
-              <p className="text-lg text-slate-300 max-w-2xl">{selectedModule.description}</p>
-            </div>
-            <div className="flex gap-2 mt-3 justify-end">
-              <button
-                className="px-4 py-2 rounded-lg border border-slate-400/60 text-white hover:border-accent-strong disabled:opacity-50"
-                onClick={downloadDoc}
-                disabled={!selectedModule.assets.find((a) => a.type === "doc")}
-              >
-                Download manual
-              </button>
-              <button
-                className="px-4 py-2 rounded-lg border border-slate-400/60 text-white hover:border-accent-strong disabled:opacity-50"
-                onClick={downloadCode}
-                disabled={!selectedModule.codeSnippet && !selectedModule.assets.find((a) => a.type === "code")}
-              >
-                Download code
-              </button>
-            </div>
+          <div>
+            <h2 className="text-2xl font-semibold text-white mb-2">MODULE MATERIALS</h2>
+            <p className="text-xl text-slate-100 mb-1">{selectedModule.title}</p>
+            <p className="text-lg text-slate-300">{selectedModule.description}</p>
           </div>
           <div className={`grid gap-4 items-stretch ${isExpanded ? "md:grid-cols-1" : "md:grid-cols-2"}`}>
             {!docExpanded && (
@@ -371,9 +379,22 @@ export default function CustomerPage() {
                     <h3 className="text-lg font-semibold text-white">Code</h3>
                     <p className="text-xs text-slate-400">{codeFileName}</p>
                   </div>
-                  <button className="text-xs text-accent-strong underline" onClick={toggleCodeExpanded}>
-                    {codeExpanded ? "Collapse" : "Expand"}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="text-xs text-accent-strong underline disabled:text-accent-strong/40 disabled:opacity-70"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        downloadCode();
+                      }}
+                      disabled={!selectedModule.codeSnippet && !selectedModule.assets.find((a) => a.type === "code")}
+                    >
+                      Download
+                    </button>
+                    <button className="text-xs text-accent-strong underline" onClick={toggleCodeExpanded}>
+                      {codeExpanded ? "Collapse" : "Expand"}
+                    </button>
+                  </div>
                 </div>
                 <div className="bg-black rounded-xl border border-white/15 shadow-inner overflow-hidden flex-1">
                   <pre className="p-4 text-sm text-true-white overflow-auto h-full whitespace-pre-wrap">
@@ -391,9 +412,21 @@ export default function CustomerPage() {
                       {selectedModule.assets.find((a) => a.type === "doc")?.label || "Document"}
                     </p>
                   </div>
-                  <button className="text-xs text-accent-strong underline" onClick={toggleDocExpanded}>
-                    {docExpanded ? "Collapse" : "Expand"}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="text-xs text-slate-900 underline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        downloadDoc();
+                      }}
+                    >
+                      Download
+                    </button>
+                    <button className="text-xs text-accent-strong underline" onClick={toggleDocExpanded}>
+                      {docExpanded ? "Collapse" : "Expand"}
+                    </button>
+                  </div>
                 </div>
                 <div className="bg-black/20 rounded-xl border border-white/10 shadow-inner overflow-hidden flex-1">
                   {selectedModule.assets.filter((a) => a.type === "doc").length > 0 ? (

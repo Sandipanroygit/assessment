@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import { products as fallbackProducts } from "@/data/products";
 import type { CurriculumModule, Product } from "@/types";
 
 type CurriculumRow = {
@@ -18,6 +19,7 @@ type ProductRow = {
   name: string;
   description: string | null;
   image_url: string | null;
+  gallery_urls?: unknown;
   price: number;
   stock: number | null;
   delivery_eta: string | null;
@@ -27,6 +29,31 @@ type ProductRow = {
 const safeArray = <T>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
 
 const encodeStoragePath = (path: string) => path.split("/").map(encodeURIComponent).join("/");
+const isMissingGalleryColumn = (error: unknown) =>
+  error instanceof Error && /gallery_urls/i.test(error.message) && /column/i.test(error.message);
+
+const readCachedProducts = (): Product[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem("admin-product-rows");
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as Product[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+const mergeFallbackProducts = (extra: Product[] = []) => {
+  const seen = new Set<string>();
+  const merged: Product[] = [];
+  [...extra, ...fallbackProducts].forEach((p) => {
+    if (seen.has(p.id)) return;
+    seen.add(p.id);
+    merged.push(p);
+  });
+  return merged;
+};
 
 export const mapCurriculumRow = (row: CurriculumRow): CurriculumModule => {
   const assets = safeArray<CurriculumModule["assets"][number]>(row.asset_urls);
@@ -44,11 +71,13 @@ export const mapCurriculumRow = (row: CurriculumRow): CurriculumModule => {
 
 export const mapProductRow = (row: ProductRow): Product => {
   const image = row.image_url ?? "";
+  const gallery = safeArray<string>(row.gallery_urls);
   return {
     id: row.id,
     name: row.name,
     description: row.description ?? "",
     image,
+    gallery,
     price: row.price,
     deliveryEta: row.delivery_eta ?? "3-5 days",
     expectedDelivery: "",
@@ -71,21 +100,58 @@ export async function fetchCurriculumModules(options?: { includeUnpublished?: bo
 }
 
 export async function fetchProducts() {
-  const { data, error } = await supabase
-    .from("products")
-    .select("id,name,description,image_url,price,stock,delivery_eta,featured,created_at")
-    .order("created_at", { ascending: false });
-  if (error) throw error;
+  const query = () =>
+    supabase
+      .from("products")
+      .select("id,name,description,image_url,gallery_urls,price,stock,delivery_eta,featured,created_at")
+      .order("created_at", { ascending: false });
+  const fallbackQuery = () =>
+    supabase
+      .from("products")
+      .select("id,name,description,image_url,price,stock,delivery_eta,featured,created_at")
+      .order("created_at", { ascending: false });
+
+  const { data, error } = await query();
+  if (error) {
+    if (isMissingGalleryColumn(error)) {
+      const { data: fallbackData, error: fallbackError } = await fallbackQuery();
+      if (fallbackError) throw fallbackError;
+      return (fallbackData as ProductRow[]).map(mapProductRow);
+    }
+    // If Supabase is unreachable, return static products so the shop still loads
+    console.warn("fetchProducts fallback to static data:", (error as Error)?.message ?? error);
+    return mergeFallbackProducts(readCachedProducts());
+  }
   return (data as ProductRow[]).map(mapProductRow);
 }
 
 export async function fetchProductById(id: string) {
-  const { data, error } = await supabase
-    .from("products")
-    .select("id,name,description,image_url,price,stock,delivery_eta,featured,created_at")
-    .eq("id", id)
-    .maybeSingle();
-  if (error) throw error;
+  const query = () =>
+    supabase
+      .from("products")
+      .select("id,name,description,image_url,gallery_urls,price,stock,delivery_eta,featured,created_at")
+      .eq("id", id)
+      .maybeSingle();
+  const fallbackQuery = () =>
+    supabase
+      .from("products")
+      .select("id,name,description,image_url,price,stock,delivery_eta,featured,created_at")
+      .eq("id", id)
+      .maybeSingle();
+
+  const { data, error } = await query();
+  if (error) {
+    if (isMissingGalleryColumn(error)) {
+      const { data: fallbackData, error: fallbackError } = await fallbackQuery();
+      if (fallbackError) throw fallbackError;
+      if (!fallbackData) return null;
+      return mapProductRow(fallbackData as ProductRow);
+    }
+    console.warn("fetchProductById fallback to static data:", (error as Error)?.message ?? error);
+    const localCache = mergeFallbackProducts(readCachedProducts());
+    const local = localCache.find((p) => p.id === id);
+    return local ?? null;
+  }
   if (!data) return null;
   return mapProductRow(data as ProductRow);
 }
