@@ -15,15 +15,17 @@ const client = createClient(supabaseUrl, serviceRoleKey);
 
 async function ensureAdmin() {
   console.log(`Checking for admin account ${email}...`);
-  const { data: existingUser, error: lookupError } = await client.auth.admin.getUserByEmail(email);
-  if (lookupError) {
-    console.error("Lookup failed:", lookupError.message);
+  const emailNormalized = email.toLowerCase();
+  const { data: usersData, error: listError } = await client.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  if (listError) {
+    console.error("Lookup failed:", listError.message);
     process.exit(1);
   }
 
-  let userId = existingUser?.user?.id;
+  const existingUser = usersData?.users?.find((u) => (u.email ?? "").toLowerCase() === emailNormalized);
+  let userId = existingUser?.id;
 
-  if (!existingUser?.user) {
+  if (!existingUser) {
     console.log("Admin not found. Creating...");
     const { data: createData, error: createError } = await client.auth.admin.createUser({
       email,
@@ -36,6 +38,13 @@ async function ensureAdmin() {
       process.exit(1);
     }
     userId = createData.user.id;
+  } else {
+    const { error: updateError } = await client.auth.admin.updateUserById(userId, {
+      user_metadata: { full_name: fullName, role: "admin" },
+    });
+    if (updateError) {
+      console.warn("Unable to update existing admin metadata:", updateError.message);
+    }
   }
 
   if (!userId) {

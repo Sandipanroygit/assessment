@@ -3,8 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CART_STORAGE_KEY, productMap, PRODUCT_STORAGE_KEY } from "@/data/products";
+import { CART_STORAGE_KEY } from "@/data/products";
 import { use, useEffect, useMemo, useState } from "react";
+import { fetchProductById } from "@/lib/supabaseData";
+import type { Product } from "@/types";
 
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -15,37 +17,46 @@ const currency = new Intl.NumberFormat("en-IN", {
 export default function ProductDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [qty, setQty] = useState(1);
-  const [localProduct, setLocalProduct] = useState(productMap[id]);
+  const [localProduct, setLocalProduct] = useState<Product | null>(null);
   const [cart, setCart] = useState<Array<{ id: string; qty: number }>>([]);
   const [storageChecked, setStorageChecked] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = localStorage.getItem(PRODUCT_STORAGE_KEY);
-    if (!stored) return;
-    try {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) {
-        const match = parsed.find((p: { id: string }) => p.id === id);
-        if (match) setLocalProduct(match);
-      }
-    } catch {
-      // ignore malformed storage
-    }
-    const storedCart = localStorage.getItem(CART_STORAGE_KEY);
-    if (storedCart) {
+    let cancelled = false;
+
+    const loadProduct = async () => {
       try {
-        const parsed = JSON.parse(storedCart);
-        if (Array.isArray(parsed)) setCart(parsed);
+        const fromDb = await fetchProductById(id);
+        if (cancelled) return;
+        setLocalProduct(fromDb);
       } catch {
-        // ignore
+        if (cancelled) return;
+        setLocalProduct(null);
+      } finally {
+        if (!cancelled) setStorageChecked(true);
       }
-    }
-    setStorageChecked(true);
+
+      if (typeof window !== "undefined") {
+        const storedCart = localStorage.getItem(CART_STORAGE_KEY);
+        if (storedCart) {
+          try {
+            const parsed = JSON.parse(storedCart);
+            if (Array.isArray(parsed)) setCart(parsed);
+          } catch {
+            // ignore
+          }
+        }
+      }
+    };
+
+    loadProduct();
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
-  const product = useMemo(() => localProduct ?? productMap[id], [localProduct, id]);
+  const product = useMemo(() => localProduct, [localProduct]);
   const gallery = useMemo(() => {
     if (!product) return [];
     const list =
@@ -55,7 +66,11 @@ export default function ProductDetail({ params }: { params: Promise<{ id: string
     if (list.length === 0 && product.image) return [product.image];
     return list;
   }, [product]);
-  const imageSrc = gallery[galleryIndex] ?? product?.imageData ?? product?.image;
+  const imageSrc =
+    gallery[galleryIndex] ??
+    product?.imageData ??
+    product?.image ??
+    "https://images.unsplash.com/photo-1508615039623-a25605d2b022?auto=format&fit=crop&w=800&q=80";
   const highlights = product?.highlights ?? [];
 
   if (!product && !storageChecked) {

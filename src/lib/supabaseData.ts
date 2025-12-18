@@ -1,0 +1,124 @@
+import { supabase } from "@/lib/supabaseClient";
+import type { CurriculumModule, Product } from "@/types";
+
+type CurriculumRow = {
+  id: string;
+  title: string;
+  grade: string;
+  subject: string;
+  module: string;
+  description: string | null;
+  asset_urls: unknown;
+  price_yearly: number | null;
+  published: boolean | null;
+};
+
+type ProductRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  price: number;
+  stock: number | null;
+  delivery_eta: string | null;
+  featured: boolean | null;
+};
+
+const safeArray = <T>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
+
+const encodeStoragePath = (path: string) => path.split("/").map(encodeURIComponent).join("/");
+
+export const mapCurriculumRow = (row: CurriculumRow): CurriculumModule => {
+  const assets = safeArray<CurriculumModule["assets"][number]>(row.asset_urls);
+  return {
+    id: row.id,
+    title: row.title,
+    grade: row.grade,
+    subject: row.subject,
+    module: row.module,
+    description: row.description ?? "",
+    assets,
+    priceYearly: row.price_yearly ?? undefined,
+  };
+};
+
+export const mapProductRow = (row: ProductRow): Product => {
+  const image = row.image_url ?? "";
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description ?? "",
+    image,
+    price: row.price,
+    deliveryEta: row.delivery_eta ?? "3-5 days",
+    expectedDelivery: "",
+    stock: row.stock ?? 0,
+    sku: `SKU-${row.id.slice(0, 8)}`,
+    highlights: [],
+    featured: row.featured ?? undefined,
+  };
+};
+
+export async function fetchCurriculumModules(options?: { includeUnpublished?: boolean }) {
+  const includeUnpublished = options?.includeUnpublished ?? false;
+  const query = supabase
+    .from("curriculum_modules")
+    .select("id,title,grade,subject,module,description,asset_urls,price_yearly,published,created_at")
+    .order("created_at", { ascending: false });
+  const { data, error } = includeUnpublished ? await query : await query.eq("published", true);
+  if (error) throw error;
+  return (data as CurriculumRow[]).map(mapCurriculumRow);
+}
+
+export async function fetchProducts() {
+  const { data, error } = await supabase
+    .from("products")
+    .select("id,name,description,image_url,price,stock,delivery_eta,featured,created_at")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data as ProductRow[]).map(mapProductRow);
+}
+
+export async function fetchProductById(id: string) {
+  const { data, error } = await supabase
+    .from("products")
+    .select("id,name,description,image_url,price,stock,delivery_eta,featured,created_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return mapProductRow(data as ProductRow);
+}
+
+export async function uploadFileToBucket(params: {
+  bucket: string;
+  file: File;
+  pathPrefix: string;
+  fileName?: string;
+}) {
+  const safeName = (params.fileName || params.file.name || "file").replace(/[^\w.\-]+/g, "-");
+  const path = `${params.pathPrefix}/${Date.now()}-${safeName}`;
+  const { error: uploadError } = await supabase.storage
+    .from(params.bucket)
+    .upload(path, params.file, { contentType: params.file.type || undefined, upsert: true });
+  if (uploadError) throw uploadError;
+  const { data } = supabase.storage.from(params.bucket).getPublicUrl(path);
+  const publicUrl = data?.publicUrl ?? "";
+  if (publicUrl.includes("/storage/v1/object/public/")) return publicUrl;
+
+  const baseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/+$/, "");
+  if (!baseUrl) return publicUrl;
+  return `${baseUrl}/storage/v1/object/public/${params.bucket}/${encodeStoragePath(path)}`;
+}
+
+export function dataUrlToFile(dataUrl: string, fileName: string) {
+  const [header, base64] = dataUrl.split(",");
+  if (!header || !base64) {
+    throw new Error("Invalid data URL.");
+  }
+  const mime = header.match(/data:(.*);base64/)?.[1] || "application/octet-stream";
+  const bytes = atob(base64);
+  const buf = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i += 1) buf[i] = bytes.charCodeAt(i);
+  return new File([buf], fileName, { type: mime });
+}

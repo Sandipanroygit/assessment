@@ -3,35 +3,51 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { CART_STORAGE_KEY, PRODUCT_STORAGE_KEY, products as baseProducts } from "@/data/products";
+import { CART_STORAGE_KEY } from "@/data/products";
+import { fetchProducts } from "@/lib/supabaseData";
+import type { Product } from "@/types";
 
 export default function ShopPage() {
   const [query, setQuery] = useState("");
-  const [productRows, setProductRows] = useState(baseProducts);
+  const [productRows, setProductRows] = useState<Product[]>([]);
   const [cart, setCart] = useState<Array<{ id: string; qty: number }>>([]);
   const [cartOpen, setCartOpen] = useState(false);
+  const [dataStatus, setDataStatus] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = localStorage.getItem(PRODUCT_STORAGE_KEY);
-    if (!stored) return;
-    try {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) {
-        setProductRows(parsed);
-      }
-    } catch {
-      // ignore malformed storage
-    }
-    const storedCart = localStorage.getItem(CART_STORAGE_KEY);
-    if (storedCart) {
+    let cancelled = false;
+
+    const loadProducts = async () => {
       try {
-        const parsed = JSON.parse(storedCart);
-        if (Array.isArray(parsed)) setCart(parsed);
+        setDataStatus("Loading products...");
+        const rows = await fetchProducts();
+        if (cancelled) return;
+        setProductRows(rows);
+        setDataStatus(null);
       } catch {
-        // ignore
+        if (cancelled) return;
+        setProductRows([]);
+        setDataStatus("Database not reachable. No products available.");
+      }
+    };
+
+    loadProducts();
+
+    if (typeof window !== "undefined") {
+      const storedCart = localStorage.getItem(CART_STORAGE_KEY);
+      if (storedCart) {
+        try {
+          const parsed = JSON.parse(storedCart);
+          if (Array.isArray(parsed)) setCart(parsed);
+        } catch {
+          // ignore
+        }
       }
     }
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const filtered = useMemo(() => {
@@ -66,11 +82,17 @@ export default function ShopPage() {
     product.galleryData?.[0] ||
     product.gallery?.[0] ||
     product.imageData ||
-    product.image;
+    product.image ||
+    "https://images.unsplash.com/photo-1508615039623-a25605d2b022?auto=format&fit=crop&w=800&q=80";
 
   return (
     <>
       <main className="section-padding space-y-8">
+        {dataStatus && (
+          <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
+            {dataStatus}
+          </div>
+        )}
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <p className="text-accent-strong uppercase text-xs tracking-[0.2em]">Shop</p>

@@ -149,3 +149,21 @@ body.dynamic-bg {
 .text-slate-200 { color: #243832 !important; }
 .text-slate-300 { color: #2f4b42 !important; }
 .text-slate-400 { color: #3a5a51 !important; }
+
+/* Utility for truly white text (e.g., on accent buttons) */
+.text-true-white { color: #ffffff !important; }
+
+/* Theme-aware file button styling */
+.file-accent::file-selector-button {
+  background: var(--accent-strong);
+  color: #ffffff;
+  border: 1px solid color-mix(in srgb, #ffffff 12%, var(--accent-strong));
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+
+.file-accent:hover::file-selector-button { filter: brightness(1.05); }
+.file-accent:active::file-selector-button { transform: translateY(1px); }

@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { CURRICULUM_STORAGE_KEY, defaultCurriculum } from "@/data/curriculum";
 import type { CurriculumModule } from "@/types";
+import { fetchCurriculumModules } from "@/lib/supabaseData";
 
 export default function CustomerPage() {
   const router = useRouter();
@@ -13,12 +13,13 @@ export default function CustomerPage() {
   const [role, setRole] = useState<string>("customer");
   const [gradeFilter, setGradeFilter] = useState<string>("all");
   const [subjectFilter, setSubjectFilter] = useState<string>("all");
-  const [modules, setModules] = useState<CurriculumModule[]>(defaultCurriculum);
+  const [modules, setModules] = useState<CurriculumModule[]>([]);
   const [selectedModule, setSelectedModule] = useState<CurriculumModule | null>(null);
   const [signingOut, startSignOut] = useTransition();
   const [codeDisplay, setCodeDisplay] = useState("Select a module to view code.");
   const [codeExpanded, setCodeExpanded] = useState(false);
   const [docExpanded, setDocExpanded] = useState(false);
+  const [dataStatus, setDataStatus] = useState<string | null>(null);
 
   const decodeDataUrl = (url?: string) => {
     if (!url || !url.startsWith("data:")) return null;
@@ -92,20 +93,26 @@ export default function CustomerPage() {
   }, [router]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const storedCurriculum = localStorage.getItem(CURRICULUM_STORAGE_KEY);
-    if (storedCurriculum) {
+    let cancelled = false;
+
+    const loadCurriculum = async () => {
       try {
-        const parsed = JSON.parse(storedCurriculum);
-        if (Array.isArray(parsed)) {
-          const enhanced = parsed.map((m) => enhanceModule(m));
-          setModules(enhanced);
-          localStorage.setItem(CURRICULUM_STORAGE_KEY, JSON.stringify(enhanced));
-        }
+        setDataStatus("Loading curriculum...");
+        const rows = await fetchCurriculumModules({ includeUnpublished: false });
+        if (cancelled) return;
+        setModules(rows.map((m) => enhanceModule(m)));
+        setDataStatus(null);
       } catch {
-        // ignore
+        if (cancelled) return;
+        setModules([]);
+        setDataStatus("Database not reachable. No curriculum available.");
       }
-    }
+    };
+
+    loadCurriculum();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const filteredModules = useMemo(() => {
@@ -203,7 +210,7 @@ export default function CustomerPage() {
 
   const isExpanded = codeExpanded || docExpanded;
   const panelSize = (expanded: boolean) =>
-    expanded ? "aspect-auto max-h-[1100px] min-h-[600px]" : "aspect-[210/297] max-h-[720px]";
+    expanded ? "aspect-auto max-h-[1155px] min-h-[630px]" : "aspect-[210/297] max-h-[907px] min-h-[378px]";
 
   const toggleCodeExpanded = () => {
     if (codeExpanded) {
@@ -225,51 +232,47 @@ export default function CustomerPage() {
 
   return (
     <main className="section-padding space-y-8">
-      <div className="flex flex-col lg:flex-row gap-6">
-        <aside className="w-full lg:w-64 space-y-3">
-          <div className="glass-panel rounded-2xl p-4 space-y-2">
-            <p className="text-accent-strong uppercase text-xs tracking-[0.2em]">{roleLabel}</p>
-            <h1 className="text-2xl font-semibold text-white leading-tight">Hi {fullName}</h1>
-            <p className="text-slate-300 text-sm">{roleSubline}</p>
-          </div>
-          <div className="glass-panel rounded-2xl p-3 space-y-2 text-sm text-white">
-            <div className="text-xs text-slate-400 uppercase tracking-[0.2em]">Navigation</div>
-            <a href="#curriculum" className="block px-3 py-2 rounded-lg hover:bg-white/5">
-              Curriculum
-            </a>
-            <a href="#code" className="block px-3 py-2 rounded-lg hover:bg-white/5">
-              Code & docs
-            </a>
-          </div>
-          <div className="flex gap-3">
-            <Link
-              href="/"
-              className="flex-1 px-4 py-2 rounded-xl border border-white/10 text-sm text-white text-center hover:border-accent-strong"
-            >
-              Back to Home
-            </Link>
-            <button
-              onClick={() =>
-                startSignOut(async () => {
-                  await supabase.auth.signOut();
-                  router.push("/login");
-                })
-              }
-              className="flex-1 px-4 py-2 rounded-xl bg-accent text-slate-900 font-semibold shadow-glow disabled:opacity-60"
-              disabled={signingOut}
-            >
-              {signingOut ? "Signing out..." : "Sign out"}
-            </button>
-          </div>
-        </aside>
+      {dataStatus && (
+        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
+          {dataStatus}
+        </div>
+      )}
 
-        <div className="flex-1 space-y-8">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-2">
+          <p className="text-accent-strong uppercase text-xs tracking-[0.2em]">{roleLabel}</p>
+          <h1 className="text-3xl font-semibold text-white leading-tight">Hi {fullName}</h1>
+          <p className="text-slate-300 text-sm">{roleSubline}</p>
+        </div>
+        <div className="flex gap-3">
+          <Link
+            href="/"
+            className="px-4 py-2 rounded-xl border border-white/10 text-sm text-slate-900 text-center hover:border-accent-strong"
+          >
+            Back to Home
+          </Link>
+          <button
+            onClick={() =>
+              startSignOut(async () => {
+                await supabase.auth.signOut();
+                router.push("/login");
+              })
+            }
+            className="px-4 py-2 rounded-xl bg-accent text-true-white font-semibold shadow-glow disabled:opacity-60"
+            disabled={signingOut}
+          >
+            {signingOut ? "Signing out..." : "Sign out"}
+          </button>
+        </div>
+      </div>
 
+      <div className="space-y-3">
+        <h2 className="text-xl font-semibold text-white">Browse curriculum</h2>
         <div className="glass-panel rounded-2xl p-4 grid sm:grid-cols-3 gap-3">
           <label className="text-sm text-slate-200 space-y-1">
             Grade
             <select
-              className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2"
+              className="w-full rounded-lg bg-white/5 border border-slate-400/60 px-3 py-2"
               value={gradeFilter}
               onChange={(e) => setGradeFilter(e.target.value)}
             >
@@ -284,7 +287,7 @@ export default function CustomerPage() {
           <label className="text-sm text-slate-200 space-y-1">
             Subject
             <select
-              className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2"
+              className="w-full rounded-lg bg-white/5 border border-slate-400/60 px-3 py-2"
               value={subjectFilter}
               onChange={(e) => setSubjectFilter(e.target.value)}
             >
@@ -302,75 +305,67 @@ export default function CustomerPage() {
             </div>
           </div>
         </div>
+      </div>
 
-        <section id="curriculum" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-white">Curriculum</h2>
-            <p className="text-sm text-slate-400">Showing {filteredModules.length} modules</p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {filteredModules.map((module) => (
-              <div
-                key={module.id}
-                className="glass-panel rounded-2xl p-5 space-y-3 hover:border-accent-strong"
+      <section id="curriculum" className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-white">Curriculum</h2>
+          <p className="text-sm text-slate-400">Showing {filteredModules.length} modules</p>
+        </div>
+        <div className="grid md:grid-cols-3 gap-6">
+          {filteredModules.map((module) => (
+            <div key={module.id} className="glass-panel rounded-2xl p-5 space-y-3 hover:border-accent-strong">
+              <div className="flex items-center justify-between text-xs text-accent-strong uppercase tracking-[0.2em]">
+                <span>Grade {module.grade}</span>
+                <span>{module.subject}</span>
+              </div>
+              <h3 className="text-lg font-semibold text-white">{module.title}</h3>
+              <button
+                className="w-full mt-2 py-2 rounded-lg bg-accent text-true-white font-semibold"
+                onClick={() => {
+                  if (selectedModule && selectedModule.id === module.id) {
+                    setSelectedModule(null);
+                  } else {
+                    setSelectedModule(module);
+                    document.getElementById("code")?.scrollIntoView({ behavior: "smooth" });
+                  }
+                }}
               >
-                <div className="flex items-center justify-between text-xs text-accent-strong uppercase tracking-[0.2em]">
-                  <span>Grade {module.grade}</span>
-                  <span>{module.subject}</span>
-                </div>
-                <h3 className="text-lg font-semibold text-white">{module.title}</h3>
-                <button
-                  className="w-full mt-2 py-2 rounded-lg bg-accent text-slate-900 font-semibold"
-                  onClick={() => {
-                    if (selectedModule && selectedModule.id === module.id) {
-                      setSelectedModule(null);
-                    } else {
-                      setSelectedModule(module);
-                      document.getElementById("code")?.scrollIntoView({ behavior: "smooth" });
-                    }
-                  }}
-                >
-                  {selectedModule && selectedModule.id === module.id
-                    ? "Hide curriculum/code"
-                    : "Show curriculum/code"}
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {selectedModule && (
-          <section id="code" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-white">MODULE MATERIALS</h2>
-                <p className="text-sm text-slate-200">{selectedModule.title}</p>
-                <p className="text-xs text-slate-400 max-w-2xl">{selectedModule.description}</p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  className="px-4 py-2 rounded-lg border border-white/10 text-white hover:border-accent-strong disabled:opacity-50"
-                  onClick={downloadDoc}
-                  disabled={!selectedModule.assets.find((a) => a.type === "doc")}
-                >
-                  Download manual
-                </button>
-                <button
-                  className="px-4 py-2 rounded-lg border border-white/10 text-white hover:border-accent-strong disabled:opacity-50"
-                  onClick={downloadCode}
-                  disabled={!selectedModule.codeSnippet && !selectedModule.assets.find((a) => a.type === "code")}
-                >
-                  Download code
-                </button>
-              </div>
+                {selectedModule && selectedModule.id === module.id ? "Hide curriculum/code" : "Show curriculum/code"}
+              </button>
             </div>
-            <div className={`grid gap-4 items-stretch ${isExpanded ? "md:grid-cols-1" : "md:grid-cols-2"}`}>
-              {!docExpanded && (
-              <div
-                className={`glass-panel rounded-2xl p-4 border border-white/10 h-full ${panelSize(
-                  codeExpanded
-                )} flex flex-col`}
+          ))}
+        </div>
+      </section>
+
+      {selectedModule && (
+        <section id="code" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-semibold text-white">MODULE MATERIALS</h2>
+              <p className="text-xl text-slate-100">{selectedModule.title}</p>
+              <p className="text-lg text-slate-300 max-w-2xl">{selectedModule.description}</p>
+            </div>
+            <div className="flex gap-2 mt-3 justify-end">
+              <button
+                className="px-4 py-2 rounded-lg border border-slate-400/60 text-white hover:border-accent-strong disabled:opacity-50"
+                onClick={downloadDoc}
+                disabled={!selectedModule.assets.find((a) => a.type === "doc")}
               >
+                Download manual
+              </button>
+              <button
+                className="px-4 py-2 rounded-lg border border-slate-400/60 text-white hover:border-accent-strong disabled:opacity-50"
+                onClick={downloadCode}
+                disabled={!selectedModule.codeSnippet && !selectedModule.assets.find((a) => a.type === "code")}
+              >
+                Download code
+              </button>
+            </div>
+          </div>
+          <div className={`grid gap-4 items-stretch ${isExpanded ? "md:grid-cols-1" : "md:grid-cols-2"}`}>
+            {!docExpanded && (
+              <div className={`glass-panel rounded-2xl p-4 border border-white/10 h-full ${panelSize(codeExpanded)} flex flex-col`}>
                 <div className="flex items-start justify-between mb-2">
                   <div className="space-y-1">
                     <h3 className="text-lg font-semibold text-white">Code</h3>
@@ -380,19 +375,15 @@ export default function CustomerPage() {
                     {codeExpanded ? "Collapse" : "Expand"}
                   </button>
                 </div>
-                <div className="bg-black/30 rounded-xl border border-white/10 shadow-inner overflow-hidden flex-1">
-                  <pre className="p-4 text-sm text-slate-100 overflow-auto h-full whitespace-pre-wrap">
+                <div className="bg-black rounded-xl border border-white/15 shadow-inner overflow-hidden flex-1">
+                  <pre className="p-4 text-sm text-true-white overflow-auto h-full whitespace-pre-wrap">
                     <code>{codeDisplay || "No code available."}</code>
                   </pre>
                 </div>
               </div>
-              )}
-              {!codeExpanded && (
-              <div
-                className={`glass-panel rounded-2xl p-4 border border-white/10 h-full ${panelSize(
-                  docExpanded
-                )} flex flex-col`}
-              >
+            )}
+            {!codeExpanded && (
+              <div className={`glass-panel rounded-2xl p-4 border border-white/10 h-full ${panelSize(docExpanded)} flex flex-col`}>
                 <div className="flex items-start justify-between mb-2">
                   <div className="space-y-1">
                     <h3 className="text-lg font-semibold text-white">SOP</h3>
@@ -416,12 +407,10 @@ export default function CustomerPage() {
                   )}
                 </div>
               </div>
-              )}
-            </div>
-          </section>
-        )}
-        </div>
-      </div>
+            )}
+          </div>
+        </section>
+      )}
     </main>
   );
 }

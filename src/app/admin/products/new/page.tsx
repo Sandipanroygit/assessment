@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { PRODUCT_STORAGE_KEY } from "@/data/products";
+import { supabase } from "@/lib/supabaseClient";
+import { uploadFileToBucket } from "@/lib/supabaseData";
 import type { Product } from "@/types";
 
 export default function NewProductPage() {
@@ -20,11 +21,13 @@ export default function NewProductPage() {
     imageName: "",
     galleryData: [] as string[],
     galleryNames: [] as string[],
+    galleryFiles: [] as File[],
   });
   const [status, setStatus] = useState<string | null>(null);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setStatus("Saving to database...");
     const priceNum = Number(form.price) || 0;
     const stockNum = Number(form.stock) || 0;
     const newProduct: Product = {
@@ -44,14 +47,60 @@ export default function NewProductPage() {
     };
 
     try {
-      const stored = localStorage.getItem(PRODUCT_STORAGE_KEY);
-      const parsed = stored ? (JSON.parse(stored) as Product[]) : [];
-      const next = Array.isArray(parsed) ? [...parsed, newProduct] : [newProduct];
-      localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(next));
-      setStatus(`Saved ${form.name || "product"} to catalogue.`);
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData.user) {
+        setStatus("You must be signed in to create products.");
+        return;
+      }
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", authData.user.id)
+        .maybeSingle();
+      if (profileError) {
+        const message = profileError.message ?? "Unknown error";
+        const setupHint = message.toLowerCase().includes("schema cache")
+          ? "Supabase tables are not created yet. Apply `supabase/schema.sql` in your Supabase SQL editor, then retry."
+          : null;
+        setStatus(`Unable to verify permissions: ${message}${setupHint ? ` — ${setupHint}` : ""}`);
+        return;
+      }
+      if (profileData?.role !== "admin") {
+        setStatus("Only admins can create products. Run `npm run seed:admin` to create an admin profile, then log in.");
+        return;
+      }
+
+      let imageUrl: string | null = null;
+      const primaryFile = form.galleryFiles[0];
+      if (primaryFile) {
+        imageUrl = await uploadFileToBucket({
+          bucket: "product-images",
+          file: primaryFile,
+          pathPrefix: `${authData.user.id}`,
+          fileName: primaryFile.name,
+        });
+      }
+
+      const { error } = await supabase.from("products").insert({
+        name: newProduct.name,
+        description: newProduct.description,
+        image_url: imageUrl,
+        price: newProduct.price,
+        stock: newProduct.stock,
+        delivery_eta: newProduct.deliveryEta,
+        featured: false,
+      });
+
+      if (error) {
+        setStatus(`Unable to save to database: ${error.message}`);
+        return;
+      }
+
+      setStatus(`Saved ${form.name || "product"} to shared catalogue.`);
       setTimeout(() => router.push("/admin"), 600);
-    } catch {
-      setStatus("Unable to save product (storage error).");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      setStatus(`Unable to save to database: ${message}`);
     }
   };
 
@@ -78,7 +127,7 @@ export default function NewProductPage() {
             <input
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              className="w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
+              className="w-full rounded-xl border border-slate-400/60 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
               required
             />
           </label>
@@ -87,7 +136,7 @@ export default function NewProductPage() {
             <input
               value={form.sku}
               onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
-              className="w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
+              className="w-full rounded-xl border border-slate-400/60 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
               placeholder="Optional"
             />
           </label>
@@ -98,7 +147,7 @@ export default function NewProductPage() {
           <textarea
             value={form.description}
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-            className="w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
+            className="w-full rounded-xl border border-slate-400/60 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
             rows={3}
             required
           />
@@ -112,7 +161,7 @@ export default function NewProductPage() {
               min="0"
               value={form.price}
               onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
-              className="w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
+              className="w-full rounded-xl border border-slate-400/60 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
               required
             />
           </label>
@@ -121,7 +170,7 @@ export default function NewProductPage() {
             <input
               value={form.deliveryEta}
               onChange={(e) => setForm((f) => ({ ...f, deliveryEta: e.target.value }))}
-              className="w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
+              className="w-full rounded-xl border border-slate-400/60 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
               placeholder="e.g., 3-5 days"
             />
           </label>
@@ -130,7 +179,7 @@ export default function NewProductPage() {
             <input
               value={form.expectedDelivery}
               onChange={(e) => setForm((f) => ({ ...f, expectedDelivery: e.target.value }))}
-              className="w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
+              className="w-full rounded-xl border border-slate-400/60 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
               placeholder="e.g., Arrives by Fri, Dec 27"
             />
           </label>
@@ -144,7 +193,7 @@ export default function NewProductPage() {
               min="0"
               value={form.stock}
               onChange={(e) => setForm((f) => ({ ...f, stock: e.target.value }))}
-              className="w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
+              className="w-full rounded-xl border border-slate-400/60 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none"
               required
             />
           </label>
@@ -163,6 +212,7 @@ export default function NewProductPage() {
                     imageName: "",
                     galleryData: [],
                     galleryNames: [],
+                    galleryFiles: [],
                   }));
                   return;
                 }
@@ -178,17 +228,19 @@ export default function NewProductPage() {
                   setForm((prev) => {
                     const mergedData = [...(prev.galleryData || []), ...dataUrls].slice(0, 3);
                     const mergedNames = [...(prev.galleryNames || []), ...files.map((f) => f.name)].slice(0, 3);
+                    const mergedFiles = [...(prev.galleryFiles || []), ...files].slice(0, 3);
                     return {
                       ...prev,
                       imageData: mergedData[0] ?? "",
                       imageName: mergedNames[0] ?? "",
                       galleryData: mergedData,
                       galleryNames: mergedNames,
+                      galleryFiles: mergedFiles,
                     };
                   });
                 });
               }}
-              className="w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none file:bg-transparent file:border-0 file:text-white"
+              className="w-full rounded-xl border border-slate-400/60 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none file-accent"
             />
             {form.galleryNames.length > 0 && (
               <p className="text-xs text-slate-400">
@@ -236,6 +288,7 @@ export default function NewProductPage() {
                 imageName: "",
                 galleryData: [],
                 galleryNames: [],
+                galleryFiles: [],
               });
               setStatus(null);
             }}

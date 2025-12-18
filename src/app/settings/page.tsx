@@ -44,7 +44,7 @@ export default function SettingsPage() {
         </div>
         <Link
           href="/"
-          className="px-4 py-2 rounded-xl bg-accent text-slate-900 font-semibold shadow-glow"
+          className="px-4 py-2 rounded-xl bg-accent text-true-white font-semibold shadow-glow"
         >
           Back to homepage
         </Link>
