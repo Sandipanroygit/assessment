@@ -15,6 +15,13 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
   const [quizText, setQuizText] = useState<string | null>(null);
   const [quizStatus, setQuizStatus] = useState<string | null>(null);
   const [generatingQuiz, setGeneratingQuiz] = useState(false);
+  const [quizQuestions, setQuizQuestions] = useState<
+    Array<{ question: string; options: Array<{ label: string; text: string }>; answer: string }>
+  >([]);
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [selections, setSelections] = useState<Record<number, string>>({});
+  const [quizComplete, setQuizComplete] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes in seconds
 
   const decodeDataUrl = useCallback((url?: string) => {
     if (!url || !url.startsWith("data:")) return null;
@@ -152,7 +159,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
       `Description: ${quizContext.description}`,
       quizContext.code ? `Code (trimmed):\n${quizContext.code}` : "No code snippet available.",
       "",
-      "Create 4 multiple-choice questions (A-D) that test understanding of the activity. Keep them concise and specific to this activity.",
+      "Create 5 multiple-choice questions (A-D) that test understanding of the activity. Keep them concise and specific to this activity.",
       "Return in this markdown format:",
       "Q1. <question>",
       "A) ...",
@@ -161,7 +168,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
       "D) ...",
       "Answer: <letter>",
       "",
-      "Repeat for Q2-Q4. Do not add explanations.",
+      "Repeat for Q2-Q5. Do not add explanations.",
     ].join("\n");
 
     try {
@@ -179,6 +186,16 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
       }
       const reply = data?.reply ?? "No quiz generated.";
       setQuizText(reply);
+      const parsed = parseQuiz(reply);
+      if (parsed.length > 0) {
+        setQuizQuestions(parsed);
+        setCurrentQuestion(0);
+        setSelections({});
+        setQuizComplete(false);
+        setTimeLeft(300);
+      } else {
+        setQuizStatus("Unable to parse quiz. Please retry.");
+      }
       setQuizStatus(null);
     } catch {
       setQuizStatus("Unable to generate quiz right now.");
@@ -186,6 +203,56 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
       setGeneratingQuiz(false);
     }
   };
+
+  const parseQuiz = (text: string) => {
+    const blocks = text.split(/Q\d+\./i).filter(Boolean);
+    const questions: Array<{ question: string; options: Array<{ label: string; text: string }>; answer: string }> =
+      [];
+    const answerRegex = /Answer:\s*([A-D])/i;
+    blocks.forEach((block) => {
+      const lines = block.trim().split("\n").map((l) => l.trim()).filter(Boolean);
+      if (lines.length === 0) return;
+      const question = lines[0];
+      const opts = lines
+        .slice(1)
+        .filter((l) => /^[A-D][).]/i.test(l))
+        .map((l) => {
+          const label = l.slice(0, 1).toUpperCase();
+          const text = l.replace(/^[A-D][).]\s*/, "");
+          return { label, text };
+        })
+        .slice(0, 4);
+      const answerLine = lines.find((l) => answerRegex.test(l));
+      const answerMatch = answerLine ? answerLine.match(answerRegex) : null;
+      const answer = answerMatch ? answerMatch[1].toUpperCase() : "";
+      if (question && opts.length === 4 && answer) {
+        questions.push({ question, options: opts, answer });
+      }
+    });
+    return questions.slice(0, 5);
+  };
+
+  useEffect(() => {
+    if (quizComplete || quizQuestions.length === 0) return;
+    setTimeLeft(300);
+    const id = window.setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(id);
+          setQuizComplete(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [quizQuestions.length, quizComplete]);
+
+  const answeredCount = useMemo(() => Object.keys(selections).length, [selections]);
+  const score = useMemo(() => {
+    if (!quizComplete) return null;
+    return quizQuestions.reduce((acc, q, idx) => (selections[idx] === q.answer ? acc + 1 : acc), 0);
+  }, [quizComplete, quizQuestions, selections]);
 
   return (
     <main className="section-padding space-y-8">
@@ -286,10 +353,94 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
               </button>
             </div>
             {quizStatus && <div className="text-sm text-slate-300">{quizStatus}</div>}
-            {quizText && (
-              <div className="rounded-xl border border-white/10 bg-black/30 p-3 text-slate-100 whitespace-pre-wrap text-sm leading-relaxed">
-                {quizText}
+            {quizQuestions.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm text-slate-200">
+                  <div className="flex gap-2 flex-wrap">
+                    <span className="px-2 py-1 rounded-md bg-black/30 border border-white/10">Time left: {Math.floor(timeLeft / 60)}:{`${timeLeft % 60}`.padStart(2, "0")}</span>
+                    <span className="px-2 py-1 rounded-md bg-black/30 border border-white/10">Answered: {answeredCount}/{quizQuestions.length}</span>
+                  </div>
+                  {quizComplete && score !== null && (
+                    <span className="text-accent-strong font-semibold">Score: {score}/{quizQuestions.length}</span>
+                  )}
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {quizQuestions.map((_, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={`w-10 h-10 rounded-full border text-sm font-semibold ${
+                        idx === currentQuestion ? "border-accent text-accent-strong bg-accent/10" : "border-white/15 text-white bg-white/5"
+                      }`}
+                      onClick={() => setCurrentQuestion(idx)}
+                    >
+                      {idx + 1}
+                    </button>
+                  ))}
+                </div>
+                {!quizComplete && (
+                  <div className="space-y-3">
+                    <p className="text-sm text-slate-200 font-semibold">Question {currentQuestion + 1} of {quizQuestions.length}</p>
+                    <div className="rounded-xl border border-accent/30 bg-white/5 p-4 space-y-3 shadow-glow">
+                      <p className="text-white text-base leading-relaxed font-semibold">{quizQuestions[currentQuestion].question}</p>
+                      <div className="space-y-2">
+                        {quizQuestions[currentQuestion].options.map((opt) => {
+                          const selected = selections[currentQuestion] === opt.label;
+                          return (
+                            <button
+                              key={opt.label}
+                              type="button"
+                              className={`w-full text-left px-3 py-2 rounded-lg border ${
+                                selected ? "border-accent bg-accent/20 text-white" : "border-white/15 bg-white/5 text-slate-100"
+                              }`}
+                              onClick={() => setSelections((prev) => ({ ...prev, [currentQuestion]: opt.label }))}
+                            >
+                              <span className="font-semibold mr-2">{opt.label})</span>
+                              {opt.text}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="flex gap-2 justify-between">
+                        <button
+                          type="button"
+                          className="px-3 py-2 rounded-lg border border-white/15 text-white disabled:opacity-40"
+                          disabled={currentQuestion === 0}
+                          onClick={() => setCurrentQuestion((idx) => Math.max(0, idx - 1))}
+                        >
+                          Prev
+                        </button>
+                        <button
+                          type="button"
+                          className="px-3 py-2 rounded-lg border border-white/15 text-white disabled:opacity-40"
+                          disabled={currentQuestion === quizQuestions.length - 1}
+                          onClick={() => setCurrentQuestion((idx) => Math.min(quizQuestions.length - 1, idx + 1))}
+                        >
+                          Next
+                        </button>
+                        <button
+                          type="button"
+                          className="px-3 py-2 rounded-lg bg-accent text-true-white font-semibold disabled:opacity-40"
+                          onClick={() => setQuizComplete(true)}
+                          disabled={quizComplete}
+                        >
+                          Submit
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {quizComplete && score !== null && (
+                  <div className="rounded-xl border border-accent/30 bg-accent/10 p-3 text-white space-y-2">
+                    <p className="text-lg font-semibold">Assessment complete</p>
+                    <p className="text-sm">Score: {score}/{quizQuestions.length}</p>
+                    <p className="text-xs text-slate-200">You can review your selections using the question buttons above.</p>
+                  </div>
+                )}
               </div>
+            )}
+            {quizStatus && !quizQuestions.length && !generatingQuiz && (
+              <div className="text-sm text-slate-300">{quizStatus}</div>
             )}
           </div>
         </section>
