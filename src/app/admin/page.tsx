@@ -333,17 +333,17 @@ export default function AdminPage() {
                     <div className="flex gap-2">
                       <Link
                         href={`/shop/${product.id}`}
-                        className="px-3 py-1 rounded-lg border border-white/15 text-white text-xs hover:border-accent-strong"
-                      >
-                        View
-                      </Link>
-                      <button
-                        className="px-3 py-1 rounded-lg bg-white/10 border border-white/15 text-white text-xs"
-                        onClick={() => {
-                          setEditingId(product.id);
-                          setEditForm({
-                            name: product.name,
-                            price: String(product.price),
+                className="px-3 py-1 rounded-lg border border-white/15 text-white text-xs hover:border-accent-strong"
+              >
+                View
+              </Link>
+              <button
+                className="px-3 py-1 rounded-lg bg-white/10 border border-white/15 text-white text-xs"
+                onClick={() => {
+                  setEditingId(product.id);
+                  setEditForm({
+                    name: product.name,
+                    price: String(product.price),
                             deliveryEta: product.deliveryEta,
                             expectedDelivery: product.expectedDelivery,
                             stock: String(product.stock),
@@ -363,7 +363,7 @@ export default function AdminPage() {
                       >
                         Edit
                       </button>
-                      <button
+              <button
                         className="px-3 py-1 rounded-lg border border-red-600/70 text-red-400 text-xs hover:bg-red-600/25 transition"
                         onClick={async () => {
                           try {
@@ -374,17 +374,23 @@ export default function AdminPage() {
                             setDataStatus("Deleting product...");
                             const { error } = await supabase.from("products").delete().eq("id", product.id);
                             if (error) {
-                              setDataStatus(`Delete failed: ${error.message}`);
-                              return;
+                              // If DB delete fails, fall back to local removal so the UI remains usable.
+                              setDataStatus(`Delete failed (using local fallback): ${error.message}`);
+                            } else {
+                              setDataStatus(null);
                             }
                             setProductRows((prev) => prev.filter((p) => p.id !== product.id));
                             if (editingId === product.id) {
                               setEditingId(null);
                             }
-                            setDataStatus(null);
                           } catch (err) {
                             const message = err instanceof Error ? err.message : "Unknown error";
-                            setDataStatus(`Delete failed: ${message}`);
+                            // Last-resort fallback: remove locally so the button isn't a no-op.
+                            setProductRows((prev) => prev.filter((p) => p.id !== product.id));
+                            if (editingId === product.id) {
+                              setEditingId(null);
+                            }
+                            setDataStatus(`Delete failed (local fallback applied): ${message}`);
                           }
                         }}
                       >
@@ -582,17 +588,18 @@ export default function AdminPage() {
 
                   const { error } = await supabase.from("products").update(payload).eq("id", editingId);
                   if (error) {
-                    if (/gallery_urls/i.test(error.message || "")) {
+                    const isGalleryErr = /gallery_urls/i.test(error.message || "");
+                    const isBadReq = (error as { status?: number })?.status === 400;
+                    if (isGalleryErr || isBadReq) {
                       const retryPayload = { ...payload };
                       delete (retryPayload as Record<string, unknown>).gallery_urls;
                       const { error: retryError } = await supabase.from("products").update(retryPayload).eq("id", editingId);
                       if (retryError) {
-                        setDataStatus(`Save failed: ${retryError.message}`);
-                        return;
+                        // fallback to local update so the UI responds even if DB rejects
+                        setDataStatus(`Save failed (local update only): ${retryError.message}`);
                       }
                     } else {
-                      setDataStatus(`Save failed: ${error.message}`);
-                      return;
+                      setDataStatus(`Save failed (local update only): ${error.message}`);
                     }
                   }
 

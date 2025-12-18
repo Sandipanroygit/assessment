@@ -1,5 +1,4 @@
 import { supabase } from "@/lib/supabaseClient";
-import { products as fallbackProducts } from "@/data/products";
 import type { CurriculumModule, Product } from "@/types";
 
 type CurriculumRow = {
@@ -31,29 +30,7 @@ const safeArray = <T>(value: unknown): T[] => (Array.isArray(value) ? (value as 
 const encodeStoragePath = (path: string) => path.split("/").map(encodeURIComponent).join("/");
 const isMissingGalleryColumn = (error: unknown) =>
   error instanceof Error && /gallery_urls/i.test(error.message) && /column/i.test(error.message);
-
-const readCachedProducts = (): Product[] => {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem("admin-product-rows");
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as Product[]) : [];
-  } catch {
-    return [];
-  }
-};
-
-const mergeFallbackProducts = (extra: Product[] = []) => {
-  const seen = new Set<string>();
-  const merged: Product[] = [];
-  [...extra, ...fallbackProducts].forEach((p) => {
-    if (seen.has(p.id)) return;
-    seen.add(p.id);
-    merged.push(p);
-  });
-  return merged;
-};
+const isBadRequest = (error: unknown) => (error as { status?: number } | null)?.status === 400;
 
 export const mapCurriculumRow = (row: CurriculumRow): CurriculumModule => {
   const assets = safeArray<CurriculumModule["assets"][number]>(row.asset_urls);
@@ -126,14 +103,12 @@ export async function fetchProducts() {
 
   const { data, error } = await query();
   if (error) {
-    if (isMissingGalleryColumn(error)) {
+    if (isMissingGalleryColumn(error) || isBadRequest(error)) {
       const { data: fallbackData, error: fallbackError } = await fallbackQuery();
       if (fallbackError) throw fallbackError;
       return (fallbackData as ProductRow[]).map(mapProductRow);
     }
-    // If Supabase is unreachable, return static products so the shop still loads
-    console.warn("fetchProducts fallback to static data:", (error as Error)?.message ?? error);
-    return mergeFallbackProducts(readCachedProducts());
+    throw error;
   }
   return (data as ProductRow[]).map(mapProductRow);
 }
@@ -154,16 +129,13 @@ export async function fetchProductById(id: string) {
 
   const { data, error } = await query();
   if (error) {
-    if (isMissingGalleryColumn(error)) {
+    if (isMissingGalleryColumn(error) || isBadRequest(error)) {
       const { data: fallbackData, error: fallbackError } = await fallbackQuery();
       if (fallbackError) throw fallbackError;
       if (!fallbackData) return null;
       return mapProductRow(fallbackData as ProductRow);
     }
-    console.warn("fetchProductById fallback to static data:", (error as Error)?.message ?? error);
-    const localCache = mergeFallbackProducts(readCachedProducts());
-    const local = localCache.find((p) => p.id === id);
-    return local ?? null;
+    throw error;
   }
   if (!data) return null;
   return mapProductRow(data as ProductRow);
