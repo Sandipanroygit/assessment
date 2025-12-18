@@ -175,7 +175,7 @@ export default function CustomerPage() {
       setCodeDisplay("No code snippet available.");
     };
     loadCode();
-  }, [selectedModule]);
+  }, [selectedModule, decodeDataUrl]);
 
   useEffect(() => {
     // reset expanded views when switching modules

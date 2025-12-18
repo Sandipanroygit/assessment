@@ -627,7 +627,6 @@ export default function AdminPage() {
                     removeImage: false,
                     galleryData: [],
                     galleryNames: [],
-                    removeImage: false,
                   });
                   setDataStatus(null);
                 } catch (err) {
