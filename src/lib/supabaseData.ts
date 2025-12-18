@@ -99,6 +99,19 @@ export async function fetchCurriculumModules(options?: { includeUnpublished?: bo
   return (data as CurriculumRow[]).map(mapCurriculumRow);
 }
 
+export async function fetchCurriculumModuleById(id: string, options?: { includeUnpublished?: boolean }) {
+  const includeUnpublished = options?.includeUnpublished ?? false;
+  let query = supabase
+    .from("curriculum_modules")
+    .select("id,title,grade,subject,module,description,asset_urls,price_yearly,published,created_at")
+    .eq("id", id);
+  if (!includeUnpublished) query = query.eq("published", true);
+  const { data, error } = await query.maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return mapCurriculumRow(data as CurriculumRow);
+}
+
 export async function fetchProducts() {
   const query = () =>
     supabase
