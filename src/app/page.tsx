@@ -74,6 +74,13 @@ const productHighlights = [
   },
 ];
 
+const boardLogos = [
+  { label: "IB", src: "/boards/ib.png" },
+  { label: "CBSE", src: "/boards/cbse.png" },
+  { label: "ICSE", src: "/boards/cisce.png", imageClassName: "h-14 w-14 object-contain" },
+  { label: "Cambridge", src: "/boards/cambridge.png", imageClassName: "h-8 w-8 object-contain" },
+];
+
 export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -175,7 +182,17 @@ export default function Home() {
   return (
     <main className="min-h-screen text-foreground">
       <header className="relative px-6 md:px-9 py-6 flex items-center justify-between sticky top-0 z-40 bg-gradient-to-r from-white/40 via-white/20 to-white/40 supports-[backdrop-filter]:bg-white/10 border border-white/20 shadow-[0_12px_36px_rgba(0,0,0,0.12)] backdrop-blur-3xl backdrop-saturate-200">
-        <div className="flex items-center gap-3">
+        <div className="hidden md:flex items-center gap-2 text-sm font-semibold text-slate-200 uppercase tracking-[0.2em] absolute right-6 top-4">
+          <span className="inline-flex h-4 w-6 overflow-hidden rounded-sm border border-white/20">
+            <svg viewBox="0 0 24 16" aria-hidden="true" className="h-full w-full">
+              <rect width="24" height="5.33" y="0" fill="#ff9933" />
+              <rect width="24" height="5.33" y="5.33" fill="#ffffff" />
+              <rect width="24" height="5.34" y="10.66" fill="#138808" />
+            </svg>
+          </span>
+          Proudly Made in India
+        </div>
+        <div className="flex flex-col gap-3">
           <div className="relative h-[70px] w-[250px] md:w-[300px] p-3">
             <Image
               src={logo}
@@ -185,6 +202,31 @@ export default function Home() {
               className="object-contain"
               priority
             />
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-slate-200">
+            <div className="flex flex-wrap items-center gap-3">
+              {boardLogos.map((board) => (
+                <div
+                  key={board.label}
+                  className="flex items-center gap-4 rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm uppercase tracking-[0.18em]"
+                >
+                  <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-white/90">
+                  <Image
+                    src={board.src}
+                    alt={`${board.label} board logo`}
+                    width={56}
+                    height={56}
+                    className={board.imageClassName ?? "h-10 w-10 object-contain"}
+                  />
+                  </span>
+                  {board.label}
+                </div>
+              ))}
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-slate-100">
+              <span className="h-2 w-2 rounded-full bg-accent-strong shadow-glow animate-pulse" />
+              Compatible with all major boards
+            </div>
           </div>
         </div>
         <nav className="hidden md:flex items-center gap-4 text-sm">
@@ -319,6 +361,13 @@ export default function Home() {
               >
                 Browse Products
               </Link>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-200">
+              <div className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-white/10 px-3 py-1">
+                <span className="h-2 w-2 rounded-full bg-accent-strong shadow-glow" />
+                Universal board compatibility
+              </div>
+              <span className="text-slate-300">Works across all major boards.</span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm text-slate-200">
               {[

@@ -66,3 +66,5 @@ pnpm-lock.yaml
 # package-lock.json
 # yarn.lock
 # pnpm-lock.yaml
+# Local env
+.env.local
