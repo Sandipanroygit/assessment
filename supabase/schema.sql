@@ -59,6 +59,12 @@ create table if not exists public.analytics_events (
   created_at timestamp with time zone default now()
 );
 
+create table if not exists public.page_views (
+  id bigint generated always as identity primary key,
+  page text not null,
+  created_at timestamp with time zone default now()
+);
+
 -- RLS
 alter table public.profiles enable row level security;
 alter table public.curriculum_modules enable row level security;
@@ -66,6 +72,7 @@ alter table public.products enable row level security;
 alter table public.orders enable row level security;
 alter table public.order_items enable row level security;
 alter table public.analytics_events enable row level security;
+alter table public.page_views enable row level security;
 
 -- Helper: admin check (used by multiple policies)
 create or replace function public.is_admin()
@@ -138,6 +145,14 @@ create policy "Order items readable via orders" on public.order_items
 drop policy if exists "Admins manage analytics" on public.analytics_events;
 create policy "Admins manage analytics" on public.analytics_events
   for all using (public.is_admin()) with check (public.is_admin());
+
+-- Page views: public read/insert for footfall
+drop policy if exists "Public read page views" on public.page_views;
+drop policy if exists "Public insert page views" on public.page_views;
+create policy "Public read page views" on public.page_views
+  for select using (true);
+create policy "Public insert page views" on public.page_views
+  for insert with check (true);
 
 -- Hint PostgREST to refresh its schema cache
 notify pgrst, 'reload schema';

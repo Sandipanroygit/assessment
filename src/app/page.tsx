@@ -8,6 +8,7 @@ import heroSlide2 from "../../image/image2.jpg";
 import heroSlide3 from "../../image/image3.jpg";
 import logo from "../../image/logo.jpg";
 import { supabase } from "@/lib/supabaseClient";
+import { fetchPageViewCount, trackPageView } from "@/lib/supabaseData";
 
 const features = [
   {
@@ -107,6 +108,8 @@ export default function Home() {
   });
   const [contactSubmitted, setContactSubmitted] = useState(false);
   const [faqOpen, setFaqOpen] = useState(false);
+  const [footfall, setFootfall] = useState<number | null>(null);
+  const footfallDisplay = footfall === null ? "-----" : String(footfall).padStart(5, "0");
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -130,6 +133,32 @@ export default function Home() {
     };
     checkUser();
   }, [defaultAdminEmail]);
+
+  useEffect(() => {
+    let active = true;
+    const refreshCount = async () => {
+      try {
+        const count = await fetchPageViewCount("home");
+        if (active) setFootfall(count);
+      } catch {
+        // ignore count errors
+      }
+    };
+    const trackAndLoad = async () => {
+      try {
+        await trackPageView("home");
+      } catch {
+        // ignore track errors
+      }
+      await refreshCount();
+    };
+    trackAndLoad();
+    const interval = window.setInterval(refreshCount, 30000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const openPanel = () => {
     setPanelVisible(true);
@@ -529,6 +558,19 @@ export default function Home() {
               YouTube
             </Link>
           </div>
+        </div>
+        <div className="mt-8 border-t border-white/10 pt-4 flex items-center justify-center gap-3 text-xs uppercase tracking-[0.2em] text-slate-400">
+          <div className="flex items-center gap-2">
+            {footfallDisplay.split("").map((digit, index) => (
+              <span
+                key={`${digit}-${index}`}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-accent-strong/50 bg-accent text-true-white text-base font-semibold tracking-normal shadow-glow"
+              >
+                {digit}
+              </span>
+            ))}
+          </div>
+          <span className="text-[10px] text-slate-500">visits</span>
         </div>
       </footer>
 
