@@ -8,7 +8,6 @@ import heroSlide2 from "../../image/image2.jpg";
 import heroSlide3 from "../../image/image3.jpg";
 import logo from "../../image/logo.jpg";
 import { supabase } from "@/lib/supabaseClient";
-import { fetchPageViewCount, trackPageView } from "@/lib/supabaseData";
 
 const features = [
   {
@@ -109,7 +108,9 @@ export default function Home() {
   const [contactSubmitted, setContactSubmitted] = useState(false);
   const [faqOpen, setFaqOpen] = useState(false);
   const [footfall, setFootfall] = useState<number | null>(null);
-  const footfallDisplay = footfall === null ? "-----" : String(footfall).padStart(5, "0");
+  const footfallOffset = 822;
+  const footfallDisplay =
+    footfall === null ? "0822" : String(footfall + footfallOffset).padStart(4, "0");
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -138,15 +139,28 @@ export default function Home() {
     let active = true;
     const refreshCount = async () => {
       try {
-        const count = await fetchPageViewCount("home");
-        if (active) setFootfall(count);
+        const res = await fetch("/api/footfall?page=home", { cache: "no-store" });
+        if (!res.ok) throw new Error("Failed to fetch footfall.");
+        const data = (await res.json()) as { count?: number };
+        if (active && typeof data.count === "number") setFootfall(data.count);
       } catch {
         // ignore count errors
       }
     };
     const trackAndLoad = async () => {
       try {
-        await trackPageView("home");
+        const res = await fetch("/api/footfall", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ page: "home" }),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as { count?: number };
+          if (active && typeof data.count === "number") {
+            setFootfall(data.count);
+            return;
+          }
+        }
       } catch {
         // ignore track errors
       }
