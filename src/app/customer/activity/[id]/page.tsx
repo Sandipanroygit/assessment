@@ -6,6 +6,7 @@ import { fetchCurriculumModuleById } from "@/lib/supabaseData";
 import type { CurriculumModule } from "@/types";
 
 const formatSubject = (subject: string) => (subject.toLowerCase() === "maths" ? "Mathematics" : subject);
+const progressStorageKey = "activityProgress";
 
 export default function ActivityPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -16,7 +17,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
   const [quizStatus, setQuizStatus] = useState<string | null>(null);
   const [generatingQuiz, setGeneratingQuiz] = useState(false);
   const [quizQuestions, setQuizQuestions] = useState<
-    Array<{ question: string; options: Array<{ label: string; text: string }>; answer: string }>
+    Array<{ question: string; options: Array<{ label: string; text: string }>; answer: string; explanation?: string }>
   >([]);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selections, setSelections] = useState<Record<number, string>>({});
@@ -102,24 +103,39 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
 
   const downloadCode = async () => {
     if (!module) return;
+    const ensurePyExtension = (name: string) => (name.toLowerCase().endsWith(".py") ? name : `${name}.py`);
+    const fallbackName = ensurePyExtension(module.title.replace(/\s+/g, "-").toLowerCase() || "code");
     if (module.codeSnippet) {
       const blob = new Blob([module.codeSnippet], { type: "text/plain" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${module.title.replace(/\s+/g, "-").toLowerCase()}.py`;
+      a.download = fallbackName;
       a.click();
       URL.revokeObjectURL(url);
       return;
     }
     const codeAsset = module.assets.find((a) => a.type === "code");
     if (codeAsset?.url) {
-      const a = document.createElement("a");
-      a.href = codeAsset.url;
-      a.download = codeAsset.label || "code.py";
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      a.click();
+      const fileName = ensurePyExtension(codeAsset.label || fallbackName);
+      try {
+        const res = await fetch(codeAsset.url);
+        if (!res.ok) throw new Error("Failed to fetch code file.");
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch {
+        const a = document.createElement("a");
+        a.href = codeAsset.url;
+        a.download = fileName;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.click();
+      }
     }
   };
 
@@ -167,6 +183,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
       "C) ...",
       "D) ...",
       "Answer: <letter>",
+      "Explanation: <short explanation>",
       "",
       "Repeat for Q2-Q5. Do not add explanations.",
     ].join("\n");
@@ -206,8 +223,12 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
 
   const parseQuiz = (text: string) => {
     const blocks = text.split(/Q\d+\./i).filter(Boolean);
-    const questions: Array<{ question: string; options: Array<{ label: string; text: string }>; answer: string }> =
-      [];
+    const questions: Array<{
+      question: string;
+      options: Array<{ label: string; text: string }>;
+      answer: string;
+      explanation?: string;
+    }> = [];
     const answerRegex = /Answer:\s*([A-D])/i;
     blocks.forEach((block) => {
       const lines = block.trim().split("\n").map((l) => l.trim()).filter(Boolean);
@@ -225,8 +246,10 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
       const answerLine = lines.find((l) => answerRegex.test(l));
       const answerMatch = answerLine ? answerLine.match(answerRegex) : null;
       const answer = answerMatch ? answerMatch[1].toUpperCase() : "";
+      const explanationLine = lines.find((l) => /^Explanation:/i.test(l));
+      const explanation = explanationLine ? explanationLine.replace(/^Explanation:\s*/i, "").trim() : "";
       if (question && opts.length === 4 && answer) {
-        questions.push({ question, options: opts, answer });
+        questions.push({ question, options: opts, answer, explanation: explanation || undefined });
       }
     });
     return questions.slice(0, 5);
@@ -253,6 +276,23 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     if (!quizComplete) return null;
     return quizQuestions.reduce((acc, q, idx) => (selections[idx] === q.answer ? acc + 1 : acc), 0);
   }, [quizComplete, quizQuestions, selections]);
+
+  useEffect(() => {
+    if (!module || !quizComplete || score === null || quizQuestions.length === 0) return;
+    try {
+      const stored = localStorage.getItem(progressStorageKey);
+      const parsed = stored ? JSON.parse(stored) : {};
+      parsed[String(module.id)] = {
+        completed: true,
+        score,
+        total: quizQuestions.length,
+        completedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(progressStorageKey, JSON.stringify(parsed));
+    } catch {
+      // ignore storage errors
+    }
+  }, [module, quizComplete, score, quizQuestions.length]);
 
   return (
     <main className="section-padding space-y-8">
@@ -404,7 +444,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
                       <div className="flex gap-2 justify-between">
                         <button
                           type="button"
-                          className="px-3 py-2 rounded-lg border border-white/15 text-white disabled:opacity-40"
+                          className="h-10 px-4 rounded-lg border border-white/15 bg-white/5 text-white font-semibold disabled:opacity-40"
                           disabled={currentQuestion === 0}
                           onClick={() => setCurrentQuestion((idx) => Math.max(0, idx - 1))}
                         >
@@ -412,7 +452,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
                         </button>
                         <button
                           type="button"
-                          className="px-3 py-2 rounded-lg border border-white/15 text-white disabled:opacity-40"
+                          className="h-10 px-4 rounded-lg border border-white/15 bg-white/5 text-white font-semibold disabled:opacity-40"
                           disabled={currentQuestion === quizQuestions.length - 1}
                           onClick={() => setCurrentQuestion((idx) => Math.min(quizQuestions.length - 1, idx + 1))}
                         >
@@ -420,7 +460,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
                         </button>
                         <button
                           type="button"
-                          className="px-3 py-2 rounded-lg bg-accent text-true-white font-semibold disabled:opacity-40"
+                          className="h-10 px-5 rounded-lg bg-accent text-true-white font-semibold shadow-glow disabled:opacity-40"
                           onClick={() => setQuizComplete(true)}
                           disabled={quizComplete}
                         >
@@ -431,10 +471,36 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
                   </div>
                 )}
                 {quizComplete && score !== null && (
-                  <div className="rounded-xl border border-accent/30 bg-accent/10 p-3 text-white space-y-2">
+                  <div className="rounded-xl border border-accent/30 bg-accent/10 p-3 text-white space-y-3">
                     <p className="text-lg font-semibold">Assessment complete</p>
                     <p className="text-sm">Score: {score}/{quizQuestions.length}</p>
-                    <p className="text-xs text-slate-200">You can review your selections using the question buttons above.</p>
+                    {quizQuestions[currentQuestion] && (() => {
+                      const q = quizQuestions[currentQuestion];
+                      const selected = selections[currentQuestion] ?? "";
+                      const selectedOption = q.options.find((opt) => opt.label === selected);
+                      const correctOption = q.options.find((opt) => opt.label === q.answer);
+                      const isCorrect = selected === q.answer;
+                      return (
+                        <div className="rounded-lg border border-white/10 bg-black/20 p-5 space-y-3">
+                          <p className="text-lg font-semibold text-white">
+                            Q{currentQuestion + 1}. {q.question}
+                          </p>
+                          <p
+                            className={`text-base font-semibold ${
+                              isCorrect
+                                ? "text-emerald-200"
+                                : "text-rose-400 bg-rose-500/15 border border-rose-400/30 px-2 py-1 rounded-md inline-block"
+                            }`}
+                          >
+                            Your answer: {selected ? `${selected}) ${selectedOption?.text ?? ""}` : "Not answered"}
+                          </p>
+                          <p className="text-base text-slate-100">
+                            Correct answer: {q.answer}) {correctOption?.text ?? ""}
+                          </p>
+                          {q.explanation && <p className="text-base text-slate-200">Explanation: {q.explanation}</p>}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
