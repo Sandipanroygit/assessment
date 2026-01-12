@@ -17,6 +17,35 @@ export default function CustomerPage() {
   const [modules, setModules] = useState<CurriculumModule[]>([]);
   const [signingOut, startSignOut] = useTransition();
   const [dataStatus, setDataStatus] = useState<string | null>(null);
+  const [progressMap, setProgressMap] = useState<Record<string, { completed?: boolean; score?: number; total?: number; completedAt?: string }>>({});
+
+  useEffect(() => {
+    const loadProgress = () => {
+      try {
+        const stored = localStorage.getItem("activityProgress");
+        if (!stored) {
+          setProgressMap({});
+          return;
+        }
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === "object") {
+          setProgressMap(parsed);
+        } else {
+          setProgressMap({});
+        }
+      } catch {
+        setProgressMap({});
+      }
+    };
+    loadProgress();
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === "activityProgress") {
+        loadProgress();
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   const decodeDataUrl = useCallback((url?: string) => {
     if (!url || !url.startsWith("data:")) return null;
@@ -224,6 +253,18 @@ export default function CustomerPage() {
                 <span>{formatSubject(module.subject)}</span>
               </div>
               <h3 className="text-lg font-semibold text-white">{module.title}</h3>
+              {progressMap[String(module.id)]?.completed ? (
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="text-emerald-700 font-semibold">Completed</span>
+                  {typeof progressMap[String(module.id)].score === "number" && (
+                    <span className="px-2 py-1 rounded-full bg-white/10 text-slate-200 border border-white/15">
+                      Score {progressMap[String(module.id)].score}/{progressMap[String(module.id)].total || 5}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400">Not completed</p>
+              )}
               <Link
                 href={`/customer/activity/${module.id}`}
                 className="block w-full text-center mt-2 py-2 rounded-lg bg-accent text-true-white font-semibold"

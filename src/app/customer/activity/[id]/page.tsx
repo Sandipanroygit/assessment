@@ -8,6 +8,21 @@ import type { CurriculumModule } from "@/types";
 const formatSubject = (subject: string) => (subject.toLowerCase() === "maths" ? "Mathematics" : subject);
 const progressStorageKey = "activityProgress";
 
+type UploadMeta = { name: string; size: number; type: string };
+type ActivityProgressEntry = {
+  completed?: boolean;
+  score?: number;
+  total?: number;
+  completedAt?: string;
+  uploads?: {
+    logFile?: UploadMeta;
+    plotFile?: UploadMeta;
+    uploadedAt?: string;
+  };
+};
+
+const buildFileMeta = (file: File): UploadMeta => ({ name: file.name, size: file.size, type: file.type });
+
 export default function ActivityPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [module, setModule] = useState<CurriculumModule | null>(null);
@@ -23,6 +38,14 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
   const [selections, setSelections] = useState<Record<number, string>>({});
   const [quizComplete, setQuizComplete] = useState(false);
   const [timeLeft, setTimeLeft] = useState(300); // 5 minutes in seconds
+  const [logFile, setLogFile] = useState<File | null>(null);
+  const [plotFile, setPlotFile] = useState<File | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [savingUploads, setSavingUploads] = useState(false);
+  const [storedUploads, setStoredUploads] = useState<ActivityProgressEntry["uploads"] | null>(null);
+  const [markedDone, setMarkedDone] = useState(false);
+  const [codeExpanded, setCodeExpanded] = useState(false);
+  const [sopExpanded, setSopExpanded] = useState(false);
 
   const decodeDataUrl = useCallback((url?: string) => {
     if (!url || !url.startsWith("data:")) return null;
@@ -282,17 +305,68 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     try {
       const stored = localStorage.getItem(progressStorageKey);
       const parsed = stored ? JSON.parse(stored) : {};
+      const previous = parsed[String(module.id)] ?? {};
       parsed[String(module.id)] = {
+        ...previous,
         completed: true,
         score,
         total: quizQuestions.length,
         completedAt: new Date().toISOString(),
       };
       localStorage.setItem(progressStorageKey, JSON.stringify(parsed));
+      setMarkedDone(true);
     } catch {
       // ignore storage errors
     }
   }, [module, quizComplete, score, quizQuestions.length]);
+
+  useEffect(() => {
+    if (!module) return;
+    try {
+      const stored = localStorage.getItem(progressStorageKey);
+      const parsed = stored ? JSON.parse(stored) : {};
+      const entry = parsed[String(module.id)] as ActivityProgressEntry | undefined;
+      setStoredUploads(entry?.uploads ?? null);
+      setMarkedDone(Boolean(entry?.completed));
+    } catch {
+      setStoredUploads(null);
+      setMarkedDone(false);
+    }
+  }, [module]);
+
+  const handleMarkDone = () => {
+    if (!module) return;
+    if (!logFile || !plotFile) {
+      setUploadStatus("Add both the log file and plots to mark this activity as done.");
+      return;
+    }
+    setSavingUploads(true);
+    setUploadStatus(null);
+    try {
+      const stored = localStorage.getItem(progressStorageKey);
+      const parsed = stored ? JSON.parse(stored) : {};
+      const previous = parsed[String(module.id)] ?? {};
+      const uploads = {
+        logFile: buildFileMeta(logFile),
+        plotFile: buildFileMeta(plotFile),
+        uploadedAt: new Date().toISOString(),
+      };
+      parsed[String(module.id)] = {
+        ...previous,
+        completed: true,
+        completedAt: previous.completedAt ?? uploads.uploadedAt,
+        uploads,
+      };
+      localStorage.setItem(progressStorageKey, JSON.stringify(parsed));
+      setStoredUploads(uploads);
+      setMarkedDone(true);
+      setUploadStatus("Files saved. Activity marked as done.");
+    } catch {
+      setUploadStatus("Unable to save your files right now.");
+    } finally {
+      setSavingUploads(false);
+    }
+  };
 
   return (
     <main className="section-padding space-y-8">
@@ -337,16 +411,27 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
                   <h3 className="text-lg font-semibold text-white">Code</h3>
                   <p className="text-xs text-slate-400">{module.assets.find((a) => a.type === "code")?.label || "Python file"}</p>
                 </div>
-                <button
-                  type="button"
-                  className="text-xs text-accent-strong underline disabled:text-accent-strong/40 disabled:opacity-70"
-                  onClick={downloadCode}
-                  disabled={!module.codeSnippet && !module.assets.find((a) => a.type === "code")}
-                >
-                  Download
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    className="text-xs text-accent-strong underline disabled:text-accent-strong/40 disabled:opacity-70"
+                    onClick={downloadCode}
+                    disabled={!module.codeSnippet && !module.assets.find((a) => a.type === "code")}
+                  >
+                    Download
+                  </button>
+                  <button
+                    type="button"
+                    className="text-xs text-slate-200 underline"
+                    onClick={() => setCodeExpanded((prev) => !prev)}
+                  >
+                    {codeExpanded ? "Collapse" : "Expand"}
+                  </button>
+                </div>
               </div>
-              <div className="bg-black rounded-xl border border-white/15 shadow-inner overflow-hidden flex-1">
+              <div
+                className={`bg-black rounded-xl border border-white/15 shadow-inner overflow-hidden ${codeExpanded ? "h-[70vh]" : "h-[320px]"}`}
+              >
                 <pre className="p-4 text-sm text-true-white overflow-auto h-full whitespace-pre-wrap">
                   <code>{codeDisplay}</code>
                 </pre>
@@ -359,22 +444,88 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
                   <h3 className="text-lg font-semibold text-white">SOP</h3>
                   <p className="text-xs text-slate-400">{module.assets.find((a) => a.type === "doc")?.label || "Document"}</p>
                 </div>
-                <button type="button" className="text-xs text-slate-900 underline" onClick={downloadDoc}>
-                  Download
-                </button>
+                <div className="flex items-center gap-3">
+                  <button type="button" className="text-xs text-slate-900 underline" onClick={downloadDoc}>
+                    Download
+                  </button>
+                  <button
+                    type="button"
+                    className="text-xs text-slate-200 underline"
+                    onClick={() => setSopExpanded((prev) => !prev)}
+                  >
+                    {sopExpanded ? "Collapse" : "Expand"}
+                  </button>
+                </div>
               </div>
-              <div className="bg-black/20 rounded-xl border border-white/10 shadow-inner overflow-hidden flex-1">
+              <div
+                className={`bg-black/20 rounded-xl border border-white/10 shadow-inner overflow-hidden ${sopExpanded ? "h-[70vh]" : "h-[320px]"}`}
+              >
                 {module.assets.filter((a) => a.type === "doc").length > 0 ? (
                   <iframe
                     src={module.assets.find((a) => a.type === "doc")?.url}
                     title={module.assets.find((a) => a.type === "doc")?.label}
-                    className="w-full h-full min-h-[320px]"
+                    className="w-full h-full"
                   />
                 ) : (
                   <div className="p-4 text-sm text-slate-300">No documents available.</div>
                 )}
               </div>
             </div>
+          </div>
+
+          <div className="glass-panel rounded-2xl p-4 border border-white/10 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-accent-strong">Submission</p>
+                <h3 className="text-lg font-semibold text-white">Upload log + plots</h3>
+                <p className="text-sm text-slate-400">Add your activity log file and plots, then mark this activity as done.</p>
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="block text-sm text-slate-300 space-y-2">
+                Upload log file
+                <input
+                  type="file"
+                  accept=".log,.txt"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    setLogFile(file);
+                    if (file) setUploadStatus(null);
+                  }}
+                  className="w-full rounded-xl border border-slate-400/60 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none file-accent"
+                />
+                {logFile?.name && <p className="text-xs text-slate-400">Selected: {logFile.name}</p>}
+                {!logFile?.name && storedUploads?.logFile?.name && (
+                  <p className="text-xs text-slate-400">Previously uploaded: {storedUploads.logFile.name}</p>
+                )}
+              </label>
+              <label className="block text-sm text-slate-300 space-y-2">
+                Upload plots
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    setPlotFile(file);
+                    if (file) setUploadStatus(null);
+                  }}
+                  className="w-full rounded-xl border border-slate-400/60 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none file-accent"
+                />
+                {plotFile?.name && <p className="text-xs text-slate-400">Selected: {plotFile.name}</p>}
+                {!plotFile?.name && storedUploads?.plotFile?.name && (
+                  <p className="text-xs text-slate-400">Previously uploaded: {storedUploads.plotFile.name}</p>
+                )}
+              </label>
+            </div>
+            {uploadStatus && <div className="text-sm text-slate-300">{uploadStatus}</div>}
+            <button
+              type="button"
+              className="px-4 py-2 rounded-xl bg-accent text-true-white text-sm font-semibold shadow-glow disabled:opacity-50"
+              onClick={handleMarkDone}
+              disabled={savingUploads || !logFile || !plotFile}
+            >
+              {savingUploads ? "Saving..." : "Mark done"}
+            </button>
           </div>
 
           <div id="assessment" className="glass-panel rounded-2xl p-4 border border-white/10 space-y-3">
