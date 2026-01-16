@@ -4,23 +4,44 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const bucketName = "curriculum-assets";
 
-const getAdminClient = () => {
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error("Supabase service role is not configured.");
+type SupabaseClientVariant = {
+  client: ReturnType<typeof createClient>;
+  usingServiceRole: boolean;
+};
+
+const getClient = (accessToken: string): SupabaseClientVariant => {
+  if (!supabaseUrl) {
+    throw new Error("Supabase URL is not configured.");
   }
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  if (serviceRoleKey) {
+    return {
+      client: createClient(supabaseUrl, serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      }),
+      usingServiceRole: true,
+    };
+  }
+  if (anonKey) {
+    return {
+      client: createClient(supabaseUrl, anonKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { headers: { Authorization: `Bearer ${accessToken}` } },
+      }),
+      usingServiceRole: false,
+    };
+  }
+  throw new Error("Supabase keys are not configured.");
 };
 
 const sanitizeFileName = (name: string) => (name || "file").replace(/[^\w.\-]+/g, "-");
 const buildPath = (userId: string, moduleId: string, fileName: string) =>
   `submissions/${userId}/${moduleId}/${Date.now()}-${sanitizeFileName(fileName)}`;
 
-const uploadAndGetUrl = async (params: { client: ReturnType<typeof getAdminClient>; file: File; path: string }) => {
+const uploadAndGetUrl = async (params: { client: SupabaseClientVariant["client"]; file: File; path: string }) => {
   const { client, file, path } = params;
   const { error: uploadError } = await client.storage
     .from(bucketName)
@@ -30,7 +51,7 @@ const uploadAndGetUrl = async (params: { client: ReturnType<typeof getAdminClien
   return data?.publicUrl ?? "";
 };
 
-const getUserFromToken = async (client: ReturnType<typeof getAdminClient>, accessToken: string) => {
+const getUserFromToken = async (client: SupabaseClientVariant["client"], accessToken: string) => {
   const { data, error } = await client.auth.getUser(accessToken);
   if (error || !data.user) {
     throw new Error("Invalid or expired session.");
@@ -56,7 +77,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Both log and plot files are required." }, { status: 400 });
     }
 
-    const client = getAdminClient();
+    const { client, usingServiceRole } = getClient(accessToken);
     const user = await getUserFromToken(client, accessToken);
 
     const logPath = buildPath(user.id, moduleId, logFile.name || "log.txt");
@@ -67,19 +88,21 @@ export async function POST(req: Request) {
       uploadAndGetUrl({ client, file: plotFile, path: plotPath }),
     ]);
 
-    const { error: upsertError } = await client.from("activity_submissions").upsert(
-      {
-        user_id: user.id,
-        module_id: moduleId,
-        log_url: logUrl,
-        log_name: logFile.name || "log",
-        plot_url: plotUrl,
-        plot_name: plotFile.name || "plot",
-        plot_type: plotFile.type || null,
-        report_status: "pending",
-      },
-      { onConflict: "user_id,module_id" },
-    );
+    const { error: upsertError } = await client
+      .from("activity_submissions")
+      .upsert(
+        {
+          user_id: user.id,
+          module_id: moduleId,
+          log_url: logUrl,
+          log_name: logFile.name || "log",
+          plot_url: plotUrl,
+          plot_name: plotFile.name || "plot",
+          plot_type: plotFile.type || null,
+          report_status: "pending",
+        },
+        { onConflict: "user_id,module_id" },
+      );
     if (upsertError) throw upsertError;
 
     return NextResponse.json({
@@ -91,6 +114,7 @@ export async function POST(req: Request) {
       uploadedAt: new Date().toISOString(),
       userId: user.id,
       moduleId,
+      usingServiceRole,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Upload failed.";
@@ -119,7 +143,7 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Missing module id." }, { status: 400 });
     }
 
-    const client = getAdminClient();
+    const { client } = getClient(body.access_token);
     const user = await getUserFromToken(client, body.access_token);
 
     const { error: upsertError } = await client.from("activity_submissions").upsert(
