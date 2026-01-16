@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { fetchCurriculumModuleById } from "@/lib/supabaseData";
+import { fetchCurriculumModuleById, uploadFileToBucket } from "@/lib/supabaseData";
 import type { CurriculumModule } from "@/types";
 import logo from "../../../../../image/logo.jpg";
 
@@ -210,6 +210,9 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
   const [report, setReport] = useState<AiReport | null>(null);
   const [logPlotPoints, setLogPlotPoints] = useState<PlotPoint[]>([]);
   const [studentName, setStudentName] = useState("Student");
+  const [userId, setUserId] = useState<string | null>(null);
+  const [storedLogUrl, setStoredLogUrl] = useState<string | null>(null);
+  const [storedPlotType, setStoredPlotType] = useState<string | null>(null);
   const [pdfLogoSrc, setPdfLogoSrc] = useState<string | null>(null);
   const [pdfStatus, setPdfStatus] = useState<string | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -356,6 +359,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
       const { data } = await supabase.auth.getUser();
       const user = data.user;
       if (!user) return;
+      setUserId(user.id);
       const { data: profileData } = await supabase
         .from("profiles")
         .select("full_name")
@@ -365,6 +369,65 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     };
     loadProfile();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadSubmission = async () => {
+      if (!module || !userId) return;
+      try {
+        const { data, error } = await supabase
+          .from("activity_submissions")
+          .select("log_url,log_name,plot_url,plot_name,plot_type,report_json,created_at,updated_at")
+          .eq("module_id", module.id)
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) return;
+        const uploads = {
+          logFile: data.log_name ? { name: data.log_name, size: 0, type: "" } : undefined,
+          plotFile: data.plot_name ? { name: data.plot_name, size: 0, type: data.plot_type ?? "" } : undefined,
+          uploadedAt: (data.updated_at as string) ?? (data.created_at as string) ?? undefined,
+        };
+        if (cancelled) return;
+        setStoredUploads(uploads);
+        setStoredLogUrl((data.log_url as string) ?? null);
+        setStoredPlotType((data.plot_type as string) ?? (data.plot_name as string) ?? null);
+        setMarkedDone(true);
+        if (data.report_json) {
+          setReport(data.report_json as AiReport);
+          setReportStatus(null);
+        }
+      } catch {
+        if (!cancelled) setUploadStatus("Unable to load your previous submission.");
+      }
+    };
+    loadSubmission();
+    return () => {
+      cancelled = true;
+    };
+  }, [module, userId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const hydrateOverlayFromStoredLog = async () => {
+      if (!storedLogUrl) return;
+      try {
+        const res = await fetch(storedLogUrl);
+        if (!res.ok) return;
+        const text = await res.text();
+        const parsedPoints = parseLogPoints(text, codeDisplay, storedPlotType ?? "");
+        if (!cancelled) {
+          setLogPlotPoints(parsedPoints);
+        }
+      } catch {
+        if (!cancelled) setReportStatus((prev) => prev ?? "Unable to load previous log for overlay.");
+      }
+    };
+    hydrateOverlayFromStoredLog();
+    return () => {
+      cancelled = true;
+    };
+  }, [storedLogUrl, storedPlotType, codeDisplay, parseLogPoints]);
 
   useEffect(() => {
     let cancelled = false;
@@ -644,7 +707,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
 
   const generateReport = useCallback(
     async (source: { log: File; plot: File }) => {
-      if (!module) return;
+      if (!module) return null;
       setReportLoading(true);
       setReportStatus("Generating AI report...");
       try {
@@ -670,11 +733,14 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
         if (!res.ok || !data?.report) {
           throw new Error("AI report unavailable.");
         }
-        setReport(data.report as AiReport);
+        const nextReport = data.report as AiReport;
+        setReport(nextReport);
         setReportStatus(null);
         setPdfStatus(null);
+        return { report: nextReport, parsedPoints };
       } catch {
         setReportStatus("Unable to generate AI report right now.");
+        return null;
       } finally {
         setReportLoading(false);
       }
@@ -728,14 +794,56 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     setSavingUploads(true);
     setUploadStatus(null);
     try {
-      const stored = localStorage.getItem(progressStorageKey);
-      const parsed = stored ? JSON.parse(stored) : {};
-      const previous = parsed[String(module.id)] ?? {};
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData.user;
+      if (!user) {
+        setUploadStatus("Please sign in to save your submission.");
+        return;
+      }
+
+      const pathPrefix = `submissions/${user.id}/${module.id}`;
+      const timestamp = Date.now();
+      const [logUrl, plotUrl] = await Promise.all([
+        uploadFileToBucket({
+          bucket: "curriculum-assets",
+          file: logFile,
+          pathPrefix,
+          fileName: `log-${timestamp}-${logFile.name}`,
+        }),
+        uploadFileToBucket({
+          bucket: "curriculum-assets",
+          file: plotFile,
+          pathPrefix,
+          fileName: `plot-${timestamp}-${plotFile.name}`,
+        }),
+      ]);
+
       const uploads = {
         logFile: buildFileMeta(logFile),
         plotFile: buildFileMeta(plotFile),
         uploadedAt: new Date().toISOString(),
       };
+
+      const { error: saveError } = await supabase
+        .from("activity_submissions")
+        .upsert(
+          {
+            user_id: user.id,
+            module_id: module.id,
+            log_url: logUrl,
+            log_name: logFile.name,
+            plot_url: plotUrl,
+            plot_name: plotFile.name,
+            plot_type: plotFile.type || null,
+            report_status: "pending",
+          },
+          { onConflict: "user_id,module_id" },
+        );
+      if (saveError) throw saveError;
+
+      const stored = localStorage.getItem(progressStorageKey);
+      const parsed = stored ? JSON.parse(stored) : {};
+      const previous = parsed[String(module.id)] ?? {};
       parsed[String(module.id)] = {
         ...previous,
         completed: true,
@@ -744,11 +852,51 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
       };
       localStorage.setItem(progressStorageKey, JSON.stringify(parsed));
       setStoredUploads(uploads);
+      setStoredLogUrl(logUrl);
+      setStoredPlotType(plotFile.type || plotFile.name || null);
       setMarkedDone(true);
-      setUploadStatus("Files saved. Activity marked as done.");
-      await generateReport({ log: logFile, plot: plotFile });
-    } catch {
-      setUploadStatus("Unable to save your files right now.");
+      setUploadStatus("Files uploaded. Generating AI report...");
+
+      const generated = await generateReport({ log: logFile, plot: plotFile });
+      if (generated?.report) {
+        const reportHtml = buildReportHtml({
+          logoSrc: pdfLogoSrc,
+          activityTitle: module.title,
+          activityDescription: module.description,
+          accuracyOverride: computedAccuracy ?? undefined,
+          subject: module.subject,
+          grade: module.grade,
+          studentName,
+          submissionTime: uploads.uploadedAt ?? "Not recorded",
+          logFileName: uploads.logFile?.name ?? "",
+          plotFileName: uploads.plotFile?.name ?? "",
+          report: generated.report,
+          logPoints: generated.parsedPoints,
+        });
+        await supabase
+          .from("activity_submissions")
+          .upsert(
+            {
+              user_id: user.id,
+              module_id: module.id,
+              log_url: logUrl,
+              log_name: logFile.name,
+              plot_url: plotUrl,
+              plot_name: plotFile.name,
+              plot_type: plotFile.type || null,
+              report_json: generated.report,
+              report_html: reportHtml,
+              report_status: "ready",
+            },
+            { onConflict: "user_id,module_id" },
+          );
+        setUploadStatus("Files uploaded. Activity marked as done.");
+      } else {
+        setUploadStatus("Files uploaded. AI report is currently unavailable.");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to save your files right now.";
+      setUploadStatus(`Unable to save your files right now: ${message}`);
     } finally {
       setSavingUploads(false);
     }
