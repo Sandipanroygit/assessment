@@ -65,6 +65,25 @@ create table if not exists public.page_views (
   created_at timestamp with time zone default now()
 );
 
+create table if not exists public.activity_submissions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.profiles (id) on delete set null,
+  module_id uuid references public.curriculum_modules (id) on delete set null,
+  log_url text,
+  log_name text,
+  plot_url text,
+  plot_name text,
+  plot_type text,
+  report_json jsonb,
+  report_html text,
+  report_status text default 'pending',
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
+);
+
+create unique index if not exists activity_submissions_user_module_key
+  on public.activity_submissions (user_id, module_id);
+
 -- RLS
 alter table public.profiles enable row level security;
 alter table public.curriculum_modules enable row level security;
@@ -73,6 +92,7 @@ alter table public.orders enable row level security;
 alter table public.order_items enable row level security;
 alter table public.analytics_events enable row level security;
 alter table public.page_views enable row level security;
+alter table public.activity_submissions enable row level security;
 
 -- Helper: admin check (used by multiple policies)
 create or replace function public.is_admin()
@@ -153,6 +173,20 @@ create policy "Public read page views" on public.page_views
   for select using (true);
 create policy "Public insert page views" on public.page_views
   for insert with check (true);
+
+-- Activity submissions: students manage their own; admins can read all
+drop policy if exists "Students read own submissions" on public.activity_submissions;
+drop policy if exists "Students insert own submissions" on public.activity_submissions;
+drop policy if exists "Students update own submissions" on public.activity_submissions;
+drop policy if exists "Admins read submissions" on public.activity_submissions;
+create policy "Students read own submissions" on public.activity_submissions
+  for select using (auth.uid() = user_id);
+create policy "Students insert own submissions" on public.activity_submissions
+  for insert with check (auth.uid() = user_id);
+create policy "Students update own submissions" on public.activity_submissions
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "Admins read submissions" on public.activity_submissions
+  for select using (public.is_admin());
 
 -- Hint PostgREST to refresh its schema cache
 notify pgrst, 'reload schema';
