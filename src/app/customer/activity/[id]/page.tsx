@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { fetchCurriculumModuleById } from "@/lib/supabaseData";
+import { fetchCurriculumModuleById, uploadFileToBucket } from "@/lib/supabaseData";
 import type { CurriculumModule } from "@/types";
 import logo from "../../../../../image/logo.jpg";
 
@@ -794,38 +794,52 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     setSavingUploads(true);
     setUploadStatus(null);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-      if (!accessToken) {
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData.user;
+      if (!user) {
         setUploadStatus("Please sign in to save your submission.");
         return;
       }
 
-      const formData = new FormData();
-      formData.append("access_token", accessToken);
-      formData.append("module_id", String(module.id));
-      formData.append("log", logFile);
-      formData.append("plot", plotFile);
-
-      const uploadRes = await fetch("/api/submission", { method: "POST", body: formData });
-      const uploadData = await uploadRes.json();
-      if (!uploadRes.ok) {
-        const detail = uploadData?.error ? ` ${uploadData.error}` : "";
-        throw new Error(`Upload failed.${detail}`);
-      }
-
-      const logUrl = uploadData.logUrl as string;
-      const plotUrl = uploadData.plotUrl as string;
-      const logName = uploadData.logName as string;
-      const plotName = uploadData.plotName as string;
-      const plotType = (uploadData.plotType as string | null) ?? null;
-      const uploadedAt = (uploadData.uploadedAt as string) ?? new Date().toISOString();
+      const pathPrefix = `submissions/${user.id}/${module.id}`;
+      const timestamp = Date.now();
+      const [logUrl, plotUrl] = await Promise.all([
+        uploadFileToBucket({
+          bucket: "curriculum-assets",
+          file: logFile,
+          pathPrefix,
+          fileName: `log-${timestamp}-${logFile.name}`,
+        }),
+        uploadFileToBucket({
+          bucket: "curriculum-assets",
+          file: plotFile,
+          pathPrefix,
+          fileName: `plot-${timestamp}-${plotFile.name}`,
+        }),
+      ]);
 
       const uploads = {
         logFile: buildFileMeta(logFile),
         plotFile: buildFileMeta(plotFile),
-        uploadedAt,
+        uploadedAt: new Date().toISOString(),
       };
+
+      const { error: saveError } = await supabase
+        .from("activity_submissions")
+        .upsert(
+          {
+            user_id: user.id,
+            module_id: module.id,
+            log_url: logUrl,
+            log_name: logFile.name,
+            plot_url: plotUrl,
+            plot_name: plotFile.name,
+            plot_type: plotFile.type || null,
+            report_status: "pending",
+          },
+          { onConflict: "user_id,module_id" },
+        );
+      if (saveError) throw saveError;
 
       const stored = localStorage.getItem(progressStorageKey);
       const parsed = stored ? JSON.parse(stored) : {};
@@ -839,7 +853,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
       localStorage.setItem(progressStorageKey, JSON.stringify(parsed));
       setStoredUploads(uploads);
       setStoredLogUrl(logUrl);
-      setStoredPlotType(plotType || plotFile.name || null);
+      setStoredPlotType(plotFile.type || plotFile.name || null);
       setMarkedDone(true);
       setUploadStatus("Files uploaded. Generating AI report...");
 
@@ -859,27 +873,23 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
           report: generated.report,
           logPoints: generated.parsedPoints,
         });
-        const saveReportRes = await fetch("/api/submission", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            access_token: accessToken,
-            module_id: module.id,
-            log_url: logUrl,
-            plot_url: plotUrl,
-            log_name: logName,
-            plot_name: plotName,
-            plot_type: plotType,
-            report: generated.report,
-            report_html: reportHtml,
-          }),
-        });
-        if (!saveReportRes.ok) {
-          const body = await saveReportRes.json().catch(() => ({}));
-          const detail = body?.error ? ` ${body.error}` : "";
-          setUploadStatus(`Files uploaded but report save failed.${detail}`);
-          return;
-        }
+        await supabase
+          .from("activity_submissions")
+          .upsert(
+            {
+              user_id: user.id,
+              module_id: module.id,
+              log_url: logUrl,
+              log_name: logFile.name,
+              plot_url: plotUrl,
+              plot_name: plotFile.name,
+              plot_type: plotFile.type || null,
+              report_json: generated.report,
+              report_html: reportHtml,
+              report_status: "ready",
+            },
+            { onConflict: "user_id,module_id" },
+          );
         setUploadStatus("Files uploaded. Activity marked as done.");
       } else {
         setUploadStatus("Files uploaded. AI report is currently unavailable.");
