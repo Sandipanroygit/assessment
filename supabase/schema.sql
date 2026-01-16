@@ -69,6 +69,7 @@ create table if not exists public.activity_submissions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references public.profiles (id) on delete set null,
   module_id uuid references public.curriculum_modules (id) on delete set null,
+  submission_number integer not null default 1,
   log_url text,
   log_name text,
   plot_url text,
@@ -81,8 +82,8 @@ create table if not exists public.activity_submissions (
   updated_at timestamp with time zone default now()
 );
 
-create unique index if not exists activity_submissions_user_module_key
-  on public.activity_submissions (user_id, module_id);
+create index if not exists activity_submissions_user_module_idx
+  on public.activity_submissions (user_id, module_id, submission_number desc);
 
 -- RLS
 alter table public.profiles enable row level security;

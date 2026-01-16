@@ -3,12 +3,15 @@
 import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { fetchCurriculumModuleById } from "@/lib/supabaseData";
+import { fetchCurriculumModuleById, uploadFileToBucket } from "@/lib/supabaseData";
 import type { CurriculumModule } from "@/types";
 import logo from "../../../../../image/logo.jpg";
 
 const formatSubject = (subject: string) => (subject.toLowerCase() === "maths" ? "Mathematics" : subject);
 const progressStorageKey = "activityProgress";
+const submissionsBucket = "curriculum-assets";
+const submissionPathPrefix = "activity-submissions";
+const submissionHistoryKey = "activitySubmissionHistory";
 
 type UploadMeta = { name: string; size: number; type: string };
 type ActivityProgressEntry = {
@@ -33,6 +36,33 @@ type AiReport = {
   improvementTips: string[];
   logInsights: string[] | string;
   overlay?: { note: string; points: ReportOverlayPoint[] };
+};
+
+type SubmissionRow = {
+  id: string;
+  submission_number?: number | null;
+  log_url?: string | null;
+  log_name?: string | null;
+  plot_url?: string | null;
+  plot_name?: string | null;
+  plot_type?: string | null;
+  report_json?: AiReport | null;
+  report_status?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+type ActivitySubmission = {
+  id: string;
+  submissionNumber: number;
+  logUrl: string;
+  logName: string;
+  plotUrl: string;
+  plotName: string;
+  plotType?: string | null;
+  report: AiReport | null;
+  reportStatus: string | null;
+  createdAt: string;
 };
 
 const buildFileMeta = (file: File): UploadMeta => ({ name: file.name, size: file.size, type: file.type });
@@ -182,11 +212,83 @@ const buildReportHtml = ({
 </html>`;
 };
 
+const mapSubmissionRow = (row: SubmissionRow, idx: number): ActivitySubmission => ({
+  id: row.id,
+  submissionNumber: row.submission_number ?? idx + 1,
+  logUrl: row.log_url ?? "",
+  logName: row.log_name ?? "",
+  plotUrl: row.plot_url ?? "",
+  plotName: row.plot_name ?? "",
+  plotType: row.plot_type ?? null,
+  report: typeof row.report_json === "object" && row.report_json !== null ? (row.report_json as AiReport) : null,
+  reportStatus: row.report_status ?? null,
+  createdAt: row.created_at ?? row.updated_at ?? new Date().toISOString(),
+});
+
+const extractStoragePath = (url: string) => {
+  const marker = "/storage/v1/object/public/";
+  try {
+    const parsed = new URL(url);
+    const idx = parsed.pathname.indexOf(marker);
+    if (idx === -1) return null;
+    return parsed.pathname.slice(idx + marker.length);
+  } catch {
+    const idx = url.indexOf(marker);
+    if (idx === -1) return null;
+    return url.slice(idx + marker.length);
+  }
+};
+
+const bucketPathsFromUrls = (urls: string[]) => {
+  const byBucket: Record<string, string[]> = {};
+  urls.forEach((url) => {
+    const path = extractStoragePath(url);
+    if (!path) return;
+    const [bucket, ...rest] = path.split("/");
+    if (!bucket || rest.length === 0) return;
+    byBucket[bucket] = [...(byBucket[bucket] ?? []), rest.join("/")];
+  });
+  return byBucket;
+};
+
+const readLocalSubmissionHistory = (moduleId: string): ActivitySubmission[] => {
+  try {
+    const stored = localStorage.getItem(submissionHistoryKey);
+    const parsed = stored ? JSON.parse(stored) : {};
+    const entries = Array.isArray(parsed[moduleId]) ? (parsed[moduleId] as ActivitySubmission[]) : [];
+    return entries.map((entry, idx) => ({
+      ...entry,
+      id: entry.id || `local-${moduleId}-${idx + 1}`,
+      submissionNumber: entry.submissionNumber ?? idx + 1,
+      createdAt: entry.createdAt ?? new Date().toISOString(),
+    }));
+  } catch {
+    return [];
+  }
+};
+
+const writeLocalSubmissionHistory = (moduleId: string, submissions: ActivitySubmission[]) => {
+  try {
+    const stored = localStorage.getItem(submissionHistoryKey);
+    const parsed = stored ? JSON.parse(stored) : {};
+    parsed[moduleId] = submissions.map((entry, idx) => ({
+      ...entry,
+      id: entry.id || `local-${moduleId}-${idx + 1}`,
+      submissionNumber: entry.submissionNumber ?? idx + 1,
+      createdAt: entry.createdAt ?? new Date().toISOString(),
+    }));
+    localStorage.setItem(submissionHistoryKey, JSON.stringify(parsed));
+  } catch {
+    // ignore storage failures
+  }
+};
+
 export default function ActivityPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [module, setModule] = useState<CurriculumModule | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [codeDisplay, setCodeDisplay] = useState("Loading code...");
+  const [userId, setUserId] = useState<string | null>(null);
   const [quizText, setQuizText] = useState<string | null>(null);
   const [quizStatus, setQuizStatus] = useState<string | null>(null);
   const [generatingQuiz, setGeneratingQuiz] = useState(false);
@@ -203,10 +305,13 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
   const [savingUploads, setSavingUploads] = useState(false);
   const [storedUploads, setStoredUploads] = useState<ActivityProgressEntry["uploads"] | null>(null);
   const [markedDone, setMarkedDone] = useState(false);
+  const [submissions, setSubmissions] = useState<ActivitySubmission[]>([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
   const [codeExpanded, setCodeExpanded] = useState(false);
   const [sopExpanded, setSopExpanded] = useState(false);
   const [reportStatus, setReportStatus] = useState<string | null>(null);
-  const [reportLoading, setReportLoading] = useState(false);
+  const [, setReportLoading] = useState(false);
   const [report, setReport] = useState<AiReport | null>(null);
   const [logPlotPoints, setLogPlotPoints] = useState<PlotPoint[]>([]);
   const [studentName, setStudentName] = useState("Student");
@@ -234,6 +339,11 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     const accuracy = clamp(100 - normalized * 100, 0, 100);
     return accuracy;
   }, [logPlotPoints]);
+
+  const nextSubmissionNumber = useMemo(
+    () => (submissions[submissions.length - 1]?.submissionNumber ?? 0) + 1,
+    [submissions],
+  );
 
   const decodeDataUrl = useCallback((url?: string) => {
     if (!url || !url.startsWith("data:")) return null;
@@ -352,16 +462,36 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
   }, [id]);
 
   useEffect(() => {
+    if (!module) return;
+    const local = readLocalSubmissionHistory(module.id);
+    if (local.length) {
+      setSubmissions(local);
+      setSelectedSubmissionId(local[local.length - 1].id);
+      setMarkedDone(true);
+      setStoredUploads({
+        logFile: local[local.length - 1].logName ? { name: local[local.length - 1].logName, size: 0, type: "" } : undefined,
+        plotFile: local[local.length - 1].plotName ? { name: local[local.length - 1].plotName, size: 0, type: "" } : undefined,
+        uploadedAt: local[local.length - 1].createdAt,
+      });
+    }
+  }, [module]);
+
+  useEffect(() => {
     const loadProfile = async () => {
-      const { data } = await supabase.auth.getUser();
-      const user = data.user;
-      if (!user) return;
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", user.id)
-        .maybeSingle();
-      setStudentName(profileData?.full_name ?? user.user_metadata.full_name ?? user.email ?? "Student");
+      try {
+        const { data } = await supabase.auth.getUser();
+        const user = data.user;
+        if (!user) return;
+        setUserId(user.id);
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", user.id)
+          .maybeSingle();
+        setStudentName(profileData?.full_name ?? user.user_metadata.full_name ?? user.email ?? "Student");
+      } catch {
+        setUserId(null);
+      }
     };
     loadProfile();
   }, []);
@@ -431,6 +561,48 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     };
     loadCode();
   }, [module, decodeDataUrl]);
+
+  const loadSubmissions = useCallback(async () => {
+    if (!module) return;
+    setSubmissionsLoading(true);
+    try {
+      let mapped: ActivitySubmission[] = [];
+      if (userId) {
+        const { data, error } = await supabase
+          .from("activity_submissions")
+          .select(
+            "id,submission_number,log_url,log_name,plot_url,plot_name,plot_type,report_json,report_status,created_at,updated_at",
+          )
+          .eq("module_id", module.id)
+          .eq("user_id", userId)
+          .order("submission_number", { ascending: true })
+          .order("created_at", { ascending: true });
+        if (error) throw error;
+        mapped = (data ?? []).map((row, idx) => mapSubmissionRow(row as SubmissionRow, idx));
+        if (mapped.length) {
+          writeLocalSubmissionHistory(module.id, mapped);
+        }
+      }
+      if (!mapped.length) {
+        mapped = readLocalSubmissionHistory(module.id);
+      }
+      setSubmissions(mapped);
+      if (mapped.length) {
+        const latest = mapped[mapped.length - 1];
+        setSelectedSubmissionId(latest.id);
+        setMarkedDone(true);
+      }
+    } catch {
+      const fallback = readLocalSubmissionHistory(module.id);
+      setSubmissions(fallback);
+    } finally {
+      setSubmissionsLoading(false);
+    }
+  }, [module, userId]);
+
+  useEffect(() => {
+    void loadSubmissions();
+  }, [loadSubmissions]);
 
   const downloadCode = async () => {
     if (!module) return;
@@ -629,7 +801,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
   }, [module, quizComplete, score, quizQuestions.length]);
 
   useEffect(() => {
-    if (!module) return;
+    if (!module || submissions.length > 0) return;
     try {
       const stored = localStorage.getItem(progressStorageKey);
       const parsed = stored ? JSON.parse(stored) : {};
@@ -640,11 +812,49 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
       setStoredUploads(null);
       setMarkedDone(false);
     }
-  }, [module]);
+  }, [module, submissions.length]);
+
+  useEffect(() => {
+    const active = selectedSubmissionId
+      ? submissions.find((submission) => submission.id === selectedSubmissionId) ?? submissions[submissions.length - 1]
+      : submissions[submissions.length - 1];
+    if (!active) {
+      setStoredUploads(null);
+      setReport(null);
+      setReportStatus(null);
+      setLogPlotPoints([]);
+      return;
+    }
+    setStoredUploads({
+      logFile: active.logName ? { name: active.logName, size: 0, type: "" } : undefined,
+      plotFile: active.plotName ? { name: active.plotName, size: 0, type: "" } : undefined,
+      uploadedAt: active.createdAt,
+    });
+    setReport(active.report ?? null);
+    setReportStatus(
+      active.report ? `Showing report from submission ${active.submissionNumber}.` : active.reportStatus ?? "Report pending.",
+    );
+    const loadLog = async () => {
+      if (!active.logUrl) {
+        setLogPlotPoints([]);
+        return;
+      }
+      try {
+        const res = await fetch(active.logUrl);
+        const text = await res.text();
+        const parsedPoints = parseLogPoints(text, codeDisplay, active.plotType || active.plotName || "");
+        setLogPlotPoints(parsedPoints);
+      } catch {
+        setLogPlotPoints([]);
+      }
+    };
+    loadLog();
+  }, [selectedSubmissionId, submissions, parseLogPoints, codeDisplay]);
 
   const generateReport = useCallback(
     async (source: { log: File; plot: File }) => {
-      if (!module) return;
+      if (!module) return null;
+      let nextReport: AiReport | null = null;
       setReportLoading(true);
       setReportStatus("Generating AI report...");
       try {
@@ -670,14 +880,18 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
         if (!res.ok || !data?.report) {
           throw new Error("AI report unavailable.");
         }
-        setReport(data.report as AiReport);
+        nextReport = data.report as AiReport;
+        setReport(nextReport);
         setReportStatus(null);
         setPdfStatus(null);
       } catch {
         setReportStatus("Unable to generate AI report right now.");
+        setReport(null);
+        nextReport = null;
       } finally {
         setReportLoading(false);
       }
+      return nextReport;
     },
     [module, codeDisplay, parseLogPoints],
   );
@@ -719,36 +933,162 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     }
   }, [module, report, pdfLogoSrc, studentName, storedUploads, logFile, plotFile, logPlotPoints, computedAccuracy]);
 
+  const deleteSubmission = async (submissionId: string) => {
+    if (!userId) {
+      setUploadStatus("Sign in to delete a submission.");
+      return;
+    }
+    const submission = submissions.find((item) => item.id === submissionId);
+    if (!submission) return;
+    setSavingUploads(true);
+      setUploadStatus("Deleting submission...");
+    try {
+      if (!submission.id.startsWith("local-")) {
+        await supabase.from("activity_submissions").delete().eq("id", submissionId).eq("user_id", userId);
+        const byBucket = bucketPathsFromUrls([submission.logUrl, submission.plotUrl]);
+        await Promise.all(
+          Object.entries(byBucket).map(async ([bucket, paths]) => {
+            if (!paths.length) return;
+            try {
+              await supabase.storage.from(bucket).remove(paths);
+            } catch {
+              // Best effort delete; ignore storage errors
+            }
+          }),
+        );
+      }
+      const remaining = submissions.filter((item) => item.id !== submissionId);
+      setSubmissions(remaining);
+      if (module) writeLocalSubmissionHistory(module.id, remaining);
+      const nextActive = remaining[remaining.length - 1] ?? null;
+      setSelectedSubmissionId(nextActive?.id ?? null);
+      setMarkedDone(Boolean(nextActive));
+      if (!nextActive) {
+        setReport(null);
+        setReportStatus(null);
+        setStoredUploads(null);
+        setLogPlotPoints([]);
+      } else {
+        setStoredUploads({
+          logFile: nextActive.logName ? { name: nextActive.logName, size: 0, type: "" } : undefined,
+          plotFile: nextActive.plotName ? { name: nextActive.plotName, size: 0, type: "" } : undefined,
+          uploadedAt: nextActive.createdAt,
+        });
+      }
+      setUploadStatus("Submission deleted.");
+    } catch {
+      setUploadStatus("Unable to delete this submission right now.");
+    } finally {
+      setSavingUploads(false);
+    }
+  };
+
   const handleMarkDone = async () => {
     if (!module) return;
+    if (!userId) {
+      setUploadStatus("Sign in to upload your submission.");
+      return;
+    }
     if (!logFile || !plotFile) {
       setUploadStatus("Add both the log file and plots to mark this activity as done.");
       return;
     }
     setSavingUploads(true);
-    setUploadStatus(null);
+    setUploadStatus("Generating AI report...");
+    const reportResult = await generateReport({ log: logFile, plot: plotFile });
+    setUploadStatus("Uploading files...");
     try {
-      const stored = localStorage.getItem(progressStorageKey);
-      const parsed = stored ? JSON.parse(stored) : {};
-      const previous = parsed[String(module.id)] ?? {};
+      const pathPrefix = `${submissionPathPrefix}/${userId}/${module.id}`;
+      const [logUrl, plotUrl] = await Promise.all([
+        uploadFileToBucket({ bucket: submissionsBucket, file: logFile, pathPrefix }),
+        uploadFileToBucket({ bucket: submissionsBucket, file: plotFile, pathPrefix }),
+      ]);
+      const submissionNumber = nextSubmissionNumber;
+      const fallbackSubmission: ActivitySubmission = {
+        id: `local-${module.id}-${submissionNumber}-${Date.now()}`,
+        submissionNumber,
+        logUrl,
+        logName: logFile.name,
+        plotUrl,
+        plotName: plotFile.name,
+        plotType: plotFile.type || plotFile.name,
+        report: reportResult,
+        reportStatus: reportResult ? "Report ready" : "Report not generated",
+        createdAt: new Date().toISOString(),
+      };
+      const { data, error } = await supabase
+        .from("activity_submissions")
+        .insert({
+          user_id: userId,
+          module_id: module.id,
+          submission_number: submissionNumber,
+          log_url: logUrl,
+          log_name: logFile.name,
+          plot_url: plotUrl,
+          plot_name: plotFile.name,
+          plot_type: plotFile.type || plotFile.name,
+          report_json: reportResult ?? null,
+          report_status: reportResult ? "Report ready" : "Report not generated",
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      const saved = mapSubmissionRow(data as SubmissionRow, submissions.length);
+      const uploads = {
+        logFile: buildFileMeta(logFile),
+        plotFile: buildFileMeta(plotFile),
+        uploadedAt: saved.createdAt,
+      };
+      setSubmissions((prev) => [...prev.filter((item) => item.id !== fallbackSubmission.id), saved]);
+      setSelectedSubmissionId(saved.id);
+      setStoredUploads(uploads);
+      writeLocalSubmissionHistory(module.id, [...submissions.filter((item) => item.id !== fallbackSubmission.id), saved]);
+      try {
+        const stored = localStorage.getItem(progressStorageKey);
+        const parsed = stored ? JSON.parse(stored) : {};
+        const previous = parsed[String(module.id)] ?? {};
+        parsed[String(module.id)] = {
+          ...previous,
+          completed: true,
+          completedAt: previous.completedAt ?? uploads.uploadedAt,
+          uploads,
+        };
+        localStorage.setItem(progressStorageKey, JSON.stringify(parsed));
+      } catch {
+        // ignore storage errors
+      }
+      setMarkedDone(true);
+      setUploadStatus(`Submission ${saved.submissionNumber} saved.`);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : "Unknown error";
+      const submissionNumber = nextSubmissionNumber;
       const uploads = {
         logFile: buildFileMeta(logFile),
         plotFile: buildFileMeta(plotFile),
         uploadedAt: new Date().toISOString(),
       };
-      parsed[String(module.id)] = {
-        ...previous,
-        completed: true,
-        completedAt: previous.completedAt ?? uploads.uploadedAt,
-        uploads,
+      const finalReport = reportResult ?? report ?? null;
+      const finalStatus = finalReport ? "Report ready (saved locally)" : "Saved locally (offline)";
+      const fallback: ActivitySubmission = {
+        id: `local-${module.id}-${submissionNumber}-${Date.now()}`,
+        submissionNumber,
+        logUrl: "",
+        logName: logFile.name,
+        plotUrl: "",
+        plotName: plotFile.name,
+        plotType: plotFile.type || plotFile.name,
+        report: finalReport,
+        reportStatus: finalStatus,
+        createdAt: uploads.uploadedAt,
       };
-      localStorage.setItem(progressStorageKey, JSON.stringify(parsed));
+      setSubmissions((prev) => [...prev, fallback]);
+      setSelectedSubmissionId(fallback.id);
       setStoredUploads(uploads);
+      writeLocalSubmissionHistory(module.id, [...submissions, fallback]);
       setMarkedDone(true);
-      setUploadStatus("Files saved. Activity marked as done.");
-      await generateReport({ log: logFile, plot: plotFile });
-    } catch {
-      setUploadStatus("Unable to save your files right now.");
+      setReport(finalReport);
+      setReportStatus(finalStatus);
+      setUploadStatus(`Saved locally. Unable to sync with server right now. (${reason})`);
     } finally {
       setSavingUploads(false);
     }
@@ -910,14 +1250,102 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
               </label>
             </div>
             {uploadStatus && <div className="text-sm text-slate-300">{uploadStatus}</div>}
-            <button
-              type="button"
-              className="px-4 py-2 rounded-xl bg-accent text-true-white text-sm font-semibold shadow-glow disabled:opacity-50"
-              onClick={handleMarkDone}
-              disabled={savingUploads || !logFile || !plotFile}
-            >
-              {savingUploads ? "Saving..." : "Mark done"}
-            </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                className="px-4 py-2 rounded-xl bg-accent text-true-white text-sm font-semibold shadow-glow disabled:opacity-50"
+                onClick={handleMarkDone}
+                disabled={savingUploads || !logFile || !plotFile}
+              >
+                {savingUploads ? "Saving..." : `Save submission #${nextSubmissionNumber}`}
+              </button>
+              <button
+                type="button"
+                className="px-3 py-2 rounded-xl border border-white/20 text-xs text-slate-200 hover:border-accent-strong disabled:opacity-60"
+                onClick={() => void loadSubmissions()}
+                disabled={submissionsLoading || savingUploads}
+              >
+                {submissionsLoading ? "Refreshing..." : "Refresh saved files"}
+              </button>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-3 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-accent-strong">Saved submissions</p>
+                  <p className="text-xs text-slate-400">Every upload stays here. Pick one to view, download, or delete.</p>
+                </div>
+              </div>
+              {submissionsLoading ? (
+                <div className="text-sm text-slate-300">Loading submissions...</div>
+              ) : submissions.length === 0 ? (
+                <div className="text-sm text-slate-300">No submissions yet. Upload your first log and plot.</div>
+              ) : (
+                <div className="space-y-2">
+                  {submissions.map((submission) => {
+                    const isSelected =
+                      submission.id === selectedSubmissionId ||
+                      (!selectedSubmissionId && submission.id === submissions[submissions.length - 1]?.id);
+                    return (
+                      <div
+                        key={submission.id}
+                        className={`rounded-xl border px-3 py-2 flex flex-wrap items-center justify-between gap-2 ${
+                          isSelected ? "border-accent/70 bg-accent/10" : "border-white/10 bg-black/20"
+                        }`}
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-white">Submission #{submission.submissionNumber}</p>
+                          <p className="text-xs text-slate-400">
+                            {submission.logName || "Log"} • {submission.plotName || "Plot"} •{" "}
+                            {new Date(submission.createdAt).toLocaleString()}
+                          </p>
+                          {submission.reportStatus && <p className="text-xs text-slate-400">{submission.reportStatus}</p>}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            className="px-3 py-1.5 rounded-lg border border-white/15 text-xs text-white disabled:opacity-50"
+                            onClick={() => setSelectedSubmissionId(submission.id)}
+                            disabled={savingUploads}
+                          >
+                            {isSelected ? "Viewing" : "View"}
+                          </button>
+                          {submission.logUrl ? (
+                            <a
+                              className="px-3 py-1.5 rounded-lg border border-white/15 text-xs text-slate-200 hover:border-accent-strong"
+                              href={submission.logUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              download
+                            >
+                              Log
+                            </a>
+                          ) : null}
+                          {submission.plotUrl ? (
+                            <a
+                              className="px-3 py-1.5 rounded-lg border border-white/15 text-xs text-slate-200 hover:border-accent-strong"
+                              href={submission.plotUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              download
+                            >
+                              Plot
+                            </a>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="px-3 py-1.5 rounded-lg border border-red-500/50 text-xs text-red-200 hover:border-red-500 disabled:opacity-50"
+                            onClick={() => deleteSubmission(submission.id)}
+                            disabled={savingUploads}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="glass-panel rounded-2xl p-4 border border-white/10 space-y-4">
