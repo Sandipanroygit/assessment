@@ -83,6 +83,17 @@ const escapeHtml = (value: string) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+const getErrorMessage = (err: unknown) => {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === "object" && "message" in err && typeof (err as { message?: unknown }).message === "string") {
+    return (err as { message: string }).message;
+  }
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return String(err ?? "Unknown error");
+  }
+};
 
 const buildReportHtml = ({
   logoSrc,
@@ -855,6 +866,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     async (source: { log: File; plot: File }) => {
       if (!module) return null;
       let nextReport: AiReport | null = null;
+      let usedFallback = false;
       setReportLoading(true);
       setReportStatus("Generating AI report...");
       try {
@@ -880,13 +892,21 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
         if (!res.ok || !data?.report) {
           throw new Error("AI report unavailable.");
         }
+        if (data?.fallback) {
+          usedFallback = true;
+          throw new Error("AI fallback response");
+        }
         nextReport = data.report as AiReport;
         setReport(nextReport);
         setReportStatus(null);
         setPdfStatus(null);
       } catch {
-        setReportStatus("Unable to generate AI report right now.");
-        setReport(null);
+        setReportStatus(
+          usedFallback ? "AI unavailable right now. Please retry in a moment." : "Unable to generate AI report right now.",
+        );
+        if (!nextReport) {
+          setReport(null);
+        }
         nextReport = null;
       } finally {
         setReportLoading(false);
@@ -1060,14 +1080,15 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
       setMarkedDone(true);
       setUploadStatus(`Submission ${saved.submissionNumber} saved.`);
     } catch (err) {
-      const reason = err instanceof Error ? err.message : "Unknown error";
+      console.error("Submission save failed", err);
+      const reason = getErrorMessage(err);
       const submissionNumber = nextSubmissionNumber;
       const uploads = {
         logFile: buildFileMeta(logFile),
         plotFile: buildFileMeta(plotFile),
         uploadedAt: new Date().toISOString(),
       };
-      const finalReport = reportResult ?? report ?? null;
+      const finalReport = reportResult ?? null;
       const finalStatus = finalReport ? "Report ready (saved locally)" : "Saved locally (offline)";
       const fallback: ActivitySubmission = {
         id: `local-${module.id}-${submissionNumber}-${Date.now()}`,
