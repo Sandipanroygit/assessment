@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
 import { fetchCurriculumModuleById } from "@/lib/supabaseData";
 import type { CurriculumModule } from "@/types";
-import logo from "../../../../../image/logo.jpg";
 
 const formatSubject = (subject: string) => (subject.toLowerCase() === "maths" ? "Mathematics" : subject);
 const progressStorageKey = "activityProgress";
@@ -22,165 +20,8 @@ type ActivityProgressEntry = {
     uploadedAt?: string;
   };
 };
-type ReportOverlayPoint = { x: number; y: number };
-type PlotPoint = { x: number; y: number };
-type AiReport = {
-  summary: string;
-  objectiveAlignment: string;
-  trendAssessment: string;
-  accuracyPercent: number;
-  possibleErrors: string[];
-  improvementTips: string[];
-  logInsights: string[] | string;
-  overlay?: { note: string; points: ReportOverlayPoint[] };
-};
 
 const buildFileMeta = (file: File): UploadMeta => ({ name: file.name, size: file.size, type: file.type });
-const normalizeStringList = (value: unknown) => {
-  if (Array.isArray(value)) {
-    return value.filter((item) => typeof item === "string");
-  }
-  if (typeof value === "string" && value.trim()) {
-    return [value];
-  }
-  return [];
-};
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-const escapeHtml = (value: string) =>
-  value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-
-const buildReportHtml = ({
-  logoSrc,
-  activityTitle,
-  activityDescription,
-  accuracyOverride,
-  subject,
-  grade,
-  studentName,
-  submissionTime,
-  logFileName,
-  plotFileName,
-  report,
-  logPoints,
-}: {
-  logoSrc: string | null;
-  activityTitle: string;
-  activityDescription: string;
-  accuracyOverride?: number;
-  subject: string;
-  grade: string;
-  studentName: string;
-  submissionTime: string;
-  logFileName: string;
-  plotFileName: string;
-  report: AiReport;
-  logPoints: PlotPoint[];
-}) => {
-  const detailsRows = [
-    ["Activity", activityTitle],
-    ["Subject", subject || "-"],
-    ["Grade", grade || "-"],
-    ["Student", studentName || "-"],
-    ["Submission time", submissionTime || "-"],
-    ["Log file", logFileName || "-"],
-    ["Plot file", plotFileName || "-"],
-  ];
-  const accuracyValue = typeof accuracyOverride === "number" ? accuracyOverride : report.accuracyPercent;
-  const metricRows = [
-    ["Accuracy", `${Math.round(accuracyValue)}%`],
-    ["Objective alignment", report.objectiveAlignment || "-"],
-    ["Trend assessment", report.trendAssessment || "-"],
-  ];
-  const listToHtml = (items: string[]) =>
-    items.length ? items.map((item) => `<li>${escapeHtml(item)}</li>`).join("") : "<li>-</li>";
-  return `<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>AerohawX Activity Report</title>
-    <style>
-      body { font-family: Arial, sans-serif; color: #0f172a; padding: 24px; }
-      .header { display: block; margin-bottom: 10px; }
-      .logo { width: 140px; height: 60px; object-fit: contain; }
-      h1 { font-size: 20px; margin: 10px 0 6px 0; color: #0f4c81; }
-      .subtitle { color: #475569; font-size: 12px; margin-top: 2px; }
-      .section { margin-bottom: 18px; }
-      .objective-text { margin: 0 0 18px 0; font-size: 12px; color: #334155; }
-      .section-title { font-weight: bold; font-size: 12px; margin-bottom: 6px; color: #0f4c81; }
-      table { width: 100%; border-collapse: collapse; font-size: 11px; }
-      td, th { border: 1px solid #e2e8f0; padding: 6px; vertical-align: top; }
-      th { background: #e0f2fe; text-align: left; color: #0f4c81; }
-      .accent-bar { height: 6px; width: 100%; background: linear-gradient(90deg, #0ea5e9, #38bdf8); margin: 6px 0 14px 0; }
-      .label { font-weight: bold; color: #334155; width: 180px; }
-      .muted { color: #64748b; }
-      ul { margin: 0; padding-left: 18px; }
-    </style>
-  </head>
-  <body>
-    <div class="header">
-      ${logoSrc ? `<img class="logo" src="${logoSrc}" alt="AerohawX logo" />` : ""}
-    </div>
-    <div class="accent-bar"></div>
-    <h1>Activity Objective</h1>
-    <div class="objective-text">${escapeHtml(activityDescription || activityTitle)}</div>
-
-    <div class="section">
-      <div class="section-title">Submission details</div>
-      <table>
-        <tbody>
-          ${detailsRows
-            .map(
-              (row) =>
-                `<tr><td class="label">${escapeHtml(row[0])}</td><td class="muted">${escapeHtml(row[1])}</td></tr>`,
-            )
-            .join("")}
-        </tbody>
-      </table>
-    </div>
-
-    <div class="section">
-      <div class="section-title">Summary</div>
-      <div class="muted">${escapeHtml(report.summary || "-")}</div>
-    </div>
-
-    <div class="section">
-      <div class="section-title">Key metrics</div>
-      <table>
-        <tbody>
-          ${metricRows
-            .map(
-              (row) =>
-                `<tr><td class="label">${escapeHtml(row[0])}</td><td class="muted">${escapeHtml(row[1])}</td></tr>`,
-            )
-            .join("")}
-        </tbody>
-      </table>
-    </div>
-
-    <div class="section">
-      <div class="section-title">Possible errors</div>
-      <ul>${listToHtml(normalizeStringList(report.possibleErrors))}</ul>
-    </div>
-
-    <div class="section">
-      <div class="section-title">Suggestions</div>
-      <ul>${listToHtml(normalizeStringList(report.improvementTips))}</ul>
-    </div>
-
-    <div class="section">
-      <div class="section-title">Log insights</div>
-      <ul>${listToHtml(normalizeStringList(report.logInsights))}</ul>
-    </div>
-
-    ${report.overlay?.note ? `<div class="section"><div class="section-title">ISA note</div><div class="muted">${escapeHtml(report.overlay.note)}</div></div>` : ""}
-  </body>
-</html>`;
-};
 
 export default function ActivityPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -205,35 +46,6 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
   const [markedDone, setMarkedDone] = useState(false);
   const [codeExpanded, setCodeExpanded] = useState(false);
   const [sopExpanded, setSopExpanded] = useState(false);
-  const [reportStatus, setReportStatus] = useState<string | null>(null);
-  const [reportLoading, setReportLoading] = useState(false);
-  const [report, setReport] = useState<AiReport | null>(null);
-  const [logPlotPoints, setLogPlotPoints] = useState<PlotPoint[]>([]);
-  const [studentName, setStudentName] = useState("Student");
-  const [pdfLogoSrc, setPdfLogoSrc] = useState<string | null>(null);
-  const [pdfStatus, setPdfStatus] = useState<string | null>(null);
-  const [downloadingPdf, setDownloadingPdf] = useState(false);
-
-  const computedAccuracy = useMemo(() => {
-    if (logPlotPoints.length < 2) return null;
-    const sorted = [...logPlotPoints].sort((a, b) => a.x - b.x);
-    const start = sorted[0];
-    const end = sorted[sorted.length - 1];
-    const spanX = end.x - start.x;
-    const minY = Math.min(...logPlotPoints.map((p) => p.y));
-    const maxY = Math.max(...logPlotPoints.map((p) => p.y));
-    const spanY = maxY - minY;
-    if (!Number.isFinite(spanX) || !Number.isFinite(spanY) || spanX === 0 || spanY === 0) {
-      return null;
-    }
-    const slope = (end.y - start.y) / spanX;
-    const expectedAt = (x: number) => start.y + slope * (x - start.x);
-    const avgError =
-      logPlotPoints.reduce((acc, point) => acc + Math.abs(point.y - expectedAt(point.x)), 0) / logPlotPoints.length;
-    const normalized = avgError / spanY;
-    const accuracy = clamp(100 - normalized * 100, 0, 100);
-    return accuracy;
-  }, [logPlotPoints]);
 
   const decodeDataUrl = useCallback((url?: string) => {
     if (!url || !url.startsWith("data:")) return null;
@@ -245,86 +57,6 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     } catch {
       return null;
     }
-  }, []);
-
-  const parseLogPoints = useCallback((text: string, codeText: string, plotType: string) => {
-    const points: PlotPoint[] = [];
-    const lines = text.split(/\r?\n/);
-    const normalizedPlotType = plotType.toLowerCase();
-    const normalizedCode = codeText.toLowerCase();
-    const findAxisLabels = () => {
-      if (normalizedPlotType.includes("vs")) {
-        const parts = normalizedPlotType.split("vs").map((part) => part.trim());
-        if (parts.length >= 2) {
-          return { x: parts[1], y: parts[0] };
-        }
-      }
-      if (normalizedCode.includes("pressure") && (normalizedCode.includes("height") || normalizedCode.includes("altitude"))) {
-        return { x: normalizedCode.includes("altitude") ? "altitude" : "height", y: "pressure" };
-      }
-      if (normalizedCode.includes("time") && normalizedCode.includes("pressure")) {
-        return { x: "time", y: "pressure" };
-      }
-      if (normalizedCode.includes("time") && normalizedCode.includes("temperature")) {
-        return { x: "time", y: "temperature" };
-      }
-      return null;
-    };
-    const axisLabels = findAxisLabels();
-    const headerLine = lines.find((line) => {
-      const trimmed = line.trim();
-      return trimmed && /[a-zA-Z]/.test(trimmed) && !/^-?\d/.test(trimmed);
-    });
-    let headerColumns: string[] | null = null;
-    if (headerLine) {
-      const raw = headerLine.replace(/[#;]/g, " ").trim();
-      const split =
-        raw.includes(",") ? raw.split(",") : raw.includes("\t") ? raw.split("\t") : raw.split(/\s+/);
-      headerColumns = split.map((col) => col.trim().toLowerCase()).filter(Boolean);
-    }
-    const findColumnIndex = (label: string) => {
-      if (!headerColumns) return -1;
-      return headerColumns.findIndex((col) => col.includes(label));
-    };
-    const xIndex = axisLabels?.x ? findColumnIndex(axisLabels.x) : -1;
-    const yIndex = axisLabels?.y ? findColumnIndex(axisLabels.y) : -1;
-    lines.forEach((line) => {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) return;
-      if (trimmed.includes("=")) {
-        const pairs = trimmed.split(/[,\s]+/);
-        const map: Record<string, number> = {};
-        pairs.forEach((pair) => {
-          const [key, value] = pair.split("=");
-          if (!key || value === undefined) return;
-          const parsed = Number.parseFloat(value);
-          if (Number.isFinite(parsed)) {
-            map[key.trim().toLowerCase()] = parsed;
-          }
-        });
-        if (axisLabels?.x && axisLabels?.y && map[axisLabels.x] !== undefined && map[axisLabels.y] !== undefined) {
-          points.push({ x: map[axisLabels.x], y: map[axisLabels.y] });
-        }
-        return;
-      }
-      const cols = trimmed.includes(",")
-        ? trimmed.split(",")
-        : trimmed.includes("\t")
-          ? trimmed.split("\t")
-          : trimmed.split(/\s+/);
-      if (xIndex >= 0 && yIndex >= 0 && cols[xIndex] !== undefined && cols[yIndex] !== undefined) {
-        const x = Number.parseFloat(cols[xIndex]);
-        const y = Number.parseFloat(cols[yIndex]);
-        if (Number.isFinite(x) && Number.isFinite(y)) {
-          points.push({ x, y });
-        }
-        return;
-      }
-      const values = cols.map((value) => Number.parseFloat(value)).filter((value) => Number.isFinite(value));
-      if (values.length < 2) return;
-      points.push({ x: values[0], y: values[1] });
-    });
-    return points;
   }, []);
 
   useEffect(() => {
@@ -350,46 +82,6 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
       cancelled = true;
     };
   }, [id]);
-
-  useEffect(() => {
-    const loadProfile = async () => {
-      const { data } = await supabase.auth.getUser();
-      const user = data.user;
-      if (!user) return;
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", user.id)
-        .maybeSingle();
-      setStudentName(profileData?.full_name ?? user.user_metadata.full_name ?? user.email ?? "Student");
-    };
-    loadProfile();
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    const loadLogo = async () => {
-      const logoSrc = typeof logo === "string" ? logo : logo.src;
-      try {
-        const res = await fetch(logoSrc);
-        const blob = await res.blob();
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (cancelled) return;
-          if (typeof reader.result === "string") {
-            setPdfLogoSrc(reader.result);
-          }
-        };
-        reader.readAsDataURL(blob);
-      } catch {
-        if (!cancelled) setPdfLogoSrc(null);
-      }
-    };
-    loadLogo();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     const loadCode = async () => {
@@ -642,84 +334,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     }
   }, [module]);
 
-  const generateReport = useCallback(
-    async (source: { log: File; plot: File }) => {
-      if (!module) return;
-      setReportLoading(true);
-      setReportStatus("Generating AI report...");
-      try {
-        const logText = await source.log.text();
-        const parsedPoints = parseLogPoints(logText, codeDisplay, source.plot.type || source.plot.name || "");
-        setLogPlotPoints(parsedPoints);
-        const sopAsset = module.assets.find((a) => a.type === "doc");
-        const res = await fetch("/api/report", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: module.title,
-            subject: module.subject,
-            grade: module.grade,
-            description: module.description,
-            codeText: codeDisplay,
-            sopUrl: sopAsset?.url,
-            logText,
-            plotType: source.plot.type || source.plot.name,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok || !data?.report) {
-          throw new Error("AI report unavailable.");
-        }
-        setReport(data.report as AiReport);
-        setReportStatus(null);
-        setPdfStatus(null);
-      } catch {
-        setReportStatus("Unable to generate AI report right now.");
-      } finally {
-        setReportLoading(false);
-      }
-    },
-    [module, codeDisplay, parseLogPoints],
-  );
-
-  const downloadReportPdf = useCallback(async () => {
-    if (!module || !report) return;
-    setDownloadingPdf(true);
-    setPdfStatus(null);
-    try {
-      const html = buildReportHtml({
-        logoSrc: pdfLogoSrc,
-        activityTitle: module.title,
-        activityDescription: module.description,
-        accuracyOverride: computedAccuracy ?? undefined,
-        subject: module.subject,
-        grade: module.grade,
-        studentName,
-        submissionTime: storedUploads?.uploadedAt ?? "Not recorded",
-        logFileName: storedUploads?.logFile?.name ?? logFile?.name ?? "",
-        plotFileName: storedUploads?.plotFile?.name ?? plotFile?.name ?? "",
-        report,
-        logPoints: logPlotPoints,
-      });
-      const printWindow = window.open("", "_blank", "width=900,height=1200");
-      if (!printWindow) {
-        throw new Error("Unable to open print window.");
-      }
-      printWindow.document.open();
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-      }, 500);
-    } catch {
-      setPdfStatus("Unable to generate PDF right now.");
-    } finally {
-      setDownloadingPdf(false);
-    }
-  }, [module, report, pdfLogoSrc, studentName, storedUploads, logFile, plotFile, logPlotPoints, computedAccuracy]);
-
-  const handleMarkDone = async () => {
+  const handleMarkDone = () => {
     if (!module) return;
     if (!logFile || !plotFile) {
       setUploadStatus("Add both the log file and plots to mark this activity as done.");
@@ -746,7 +361,6 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
       setStoredUploads(uploads);
       setMarkedDone(true);
       setUploadStatus("Files saved. Activity marked as done.");
-      await generateReport({ log: logFile, plot: plotFile });
     } catch {
       setUploadStatus("Unable to save your files right now.");
     } finally {
@@ -784,7 +398,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
         <section className="space-y-4">
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-[0.2em] text-accent-strong">
-              Grade {module.grade} ? {formatSubject(module.subject)}
+              Grade {module.grade} · {formatSubject(module.subject)}
             </p>
             <h1 className="text-3xl font-semibold text-white leading-tight">{module.title}</h1>
             <p className="text-slate-300 text-base">{module.description}</p>
@@ -877,9 +491,6 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
                     const file = e.target.files?.[0] ?? null;
                     setLogFile(file);
                     if (file) setUploadStatus(null);
-                    setReport(null);
-                    setReportStatus(null);
-                    setLogPlotPoints([]);
                   }}
                   className="w-full rounded-xl border border-slate-400/60 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none file-accent"
                 />
@@ -897,9 +508,6 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
                     const file = e.target.files?.[0] ?? null;
                     setPlotFile(file);
                     if (file) setUploadStatus(null);
-                    setReport(null);
-                    setReportStatus(null);
-                    setLogPlotPoints([]);
                   }}
                   className="w-full rounded-xl border border-slate-400/60 bg-white/5 px-3 py-2 text-white focus:border-accent focus:outline-none file-accent"
                 />
@@ -918,218 +526,6 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
             >
               {savingUploads ? "Saving..." : "Mark done"}
             </button>
-          </div>
-
-          <div className="glass-panel rounded-2xl p-4 border border-white/10 space-y-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-accent-strong">AI Report</p>
-                <h3 className="text-lg font-semibold text-white">Student submission analysis</h3>
-                <p className="text-sm text-slate-400">Generated automatically after marking the submission as done.</p>
-              </div>
-            </div>
-            {reportStatus && <div className="text-sm text-slate-300">{reportStatus}</div>}
-            {pdfStatus && <div className="text-sm text-slate-300">{pdfStatus}</div>}
-            {report && (
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="text-sm text-slate-300">Student: {studentName}</div>
-                  <button
-                    type="button"
-                    className="px-3 py-1.5 rounded-lg bg-accent text-true-white text-sm font-semibold shadow-glow disabled:opacity-50"
-                    onClick={downloadReportPdf}
-                    disabled={downloadingPdf || !report}
-                  >
-                    {downloadingPdf ? "Preparing report..." : "Download AI Report"}
-                  </button>
-                </div>
-                <div className="grid gap-3 md:grid-cols-3">
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Accuracy</p>
-                    <p className="text-2xl font-semibold text-white">{Math.round(computedAccuracy ?? report.accuracyPercent)}%</p>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-3 md:col-span-2">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Summary</p>
-                    <p className="text-sm text-slate-200">{report.summary}</p>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Objective alignment</p>
-                    <p className="text-sm text-slate-200">{report.objectiveAlignment}</p>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Trend assessment</p>
-                    <p className="text-sm text-slate-200">{report.trendAssessment}</p>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3">
-                  <p className="text-sm font-semibold text-white">Plot overlay (student vs zero-error)</p>
-                  {logPlotPoints.length > 1 && report.overlay?.points?.length ? (
-                    <div className="space-y-3">
-                      <div className="rounded-xl border border-white/10 bg-black/30 p-3">
-                        <svg viewBox="0 0 100 100" className="w-full h-[28rem]" aria-label="Plot overlay">
-                          <rect x="0" y="0" width="100" height="100" fill="#ffffff" />
-                          {(() => {
-                            const xs = logPlotPoints.map((p) => p.x);
-                            const ys = logPlotPoints.map((p) => p.y);
-                            const minX = Math.min(...xs);
-                            const maxX = Math.max(...xs);
-                            const minY = Math.min(...ys);
-                            const maxY = Math.max(...ys);
-                            const spanX = maxX - minX || 1;
-                            const spanY = maxY - minY || 1;
-                            const ticks = [0, 2, 4];
-                            const plotLeft = 14;
-                            const plotTop = 8;
-                            const plotWidth = 78;
-                            const plotHeight = 78;
-                            const plotRight = plotLeft + plotWidth;
-                            const plotBottom = plotTop + plotHeight;
-                            const formatTick = (value: number, span: number) => {
-                              if (span >= 50) return Math.round(value).toString();
-                              if (span >= 10) return value.toFixed(1);
-                              return value.toFixed(2);
-                            };
-                            const toSvg = (point: PlotPoint) => {
-                              const x = plotLeft + ((point.x - minX) / spanX) * plotWidth;
-                              const y = plotTop + (1 - (point.y - minY) / spanY) * plotHeight;
-                              return `${x},${y}`;
-                            };
-                            const studentPath = logPlotPoints.map(toSvg).join(" ");
-                            const sortedByX = [...logPlotPoints].sort((a, b) => a.x - b.x);
-                            const startPoint = sortedByX[0];
-                            const endPoint = sortedByX[sortedByX.length - 1];
-                            const expectedPath = startPoint && endPoint
-                              ? [startPoint, endPoint].map(toSvg).join(" ")
-                              : "";
-                            const pointMarkers = logPlotPoints
-                              .slice(0, 300)
-                              .map((point, idx) => {
-                                const coords = toSvg(point).split(",");
-                                return (
-                                  <circle
-                                    key={`pt-${idx}`}
-                                    cx={Number.parseFloat(coords[0])}
-                                    cy={Number.parseFloat(coords[1])}
-                                    r="0.8"
-                                    fill="#93c5fd"
-                                  />
-                                );
-                              });
-                            return (
-                              <>
-                                {ticks.map((t) => {
-                                  const x = plotLeft + (t / 4) * plotWidth;
-                                  const y = plotTop + (t / 4) * plotHeight;
-                                  return (
-                                    <g key={`grid-${t}`}>
-                                      <line x1={x} y1={plotTop} x2={x} y2={plotBottom} stroke="rgba(15,23,42,0.15)" strokeWidth="0.4" />
-                                      <line x1={plotLeft} y1={y} x2={plotRight} y2={y} stroke="rgba(15,23,42,0.15)" strokeWidth="0.4" />
-                                    </g>
-                                  );
-                                })}
-                                <polyline points={studentPath} fill="none" stroke="#2563eb" strokeWidth="1.2" />
-                                {pointMarkers}
-                                <polyline points={expectedPath} fill="none" stroke="#dc2626" strokeWidth="1.2" strokeDasharray="2 2" />
-                                {ticks.map((t) => {
-                                  const valueX = minX + (t / 4) * spanX;
-                                  const valueY = maxY - (t / 4) * spanY;
-                                  return (
-                                    <g key={`tick-${t}`}>
-                                      <text
-                                        x={plotLeft + (t / 4) * plotWidth}
-                                        y={plotBottom + 6}
-                                        textAnchor="middle"
-                                        fill="rgba(15,23,42,0.7)"
-                                        fontSize="2.2"
-                                      >
-                                        {formatTick(valueX, spanX)}
-                                      </text>
-                                      <text
-                                        x="10"
-                                        y={plotTop + 2 + (t / 4) * plotHeight}
-                                        textAnchor="end"
-                                        fill="rgba(15,23,42,0.7)"
-                                        fontSize="2.2"
-                                      >
-                                        {formatTick(valueY, spanY)}
-                                      </text>
-                                    </g>
-                                  );
-                                })}
-                                <text x={(plotLeft + plotRight) / 2} y="99" textAnchor="middle" fill="rgba(15,23,42,0.9)" fontSize="3">
-                                  Height (cm)
-                                </text>
-                                <text
-                                  x="3.5"
-                                  y="50"
-                                  textAnchor="middle"
-                                  fill="rgba(15,23,42,0.9)"
-                                  fontSize="2.8"
-                                  transform="rotate(-90 3.5 50)"
-                                >
-                                  Pressure (kPa)
-                                </text>
-                                <g>
-                                  <rect x="64" y="10" width="26" height="12" rx="2" fill="rgba(255,255,255,0.9)" stroke="none" />
-                                  <line x1="66" y1="14" x2="72" y2="14" stroke="#2563eb" strokeWidth="1.2" />
-                                  <text x="74" y="15.2" fill="rgba(15,23,42,0.9)" fontSize="2.4">Student log</text>
-                                  <line x1="66" y1="19" x2="72" y2="19" stroke="#dc2626" strokeWidth="1.2" strokeDasharray="2 2" />
-                                  <text x="74" y="20.2" fill="#dc2626" fontSize="2.4">Standard (ISA)</text>
-                                </g>
-                              </>
-                            );
-                          })()}
-                          <rect x="14" y="8" width="78" height="78" fill="none" stroke="rgba(15,23,42,0.35)" />
-                        </svg>
-                      </div>
-                      <div className="flex flex-wrap gap-3 text-xs text-slate-300">
-                        <span className="flex items-center gap-2">
-                          <span className="inline-block h-2 w-2 rounded-full bg-blue-300" /> Student (from log)
-                        </span>
-                        <span className="flex items-center gap-2">
-                          <span className="inline-block h-2 w-2 rounded-full bg-amber-400" /> Standard (ISA)
-                        </span>
-                      </div>
-                      {report.overlay?.note && <p className="text-xs text-slate-400">{report.overlay.note}</p>}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-slate-300">Upload a log with at least two numeric columns to view the overlay.</p>
-                  )}
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Possible errors</p>
-                    <ul className="text-sm text-slate-200 space-y-1">
-                      {normalizeStringList(report.possibleErrors).map((err, idx) => (
-                        <li key={idx}>- {err}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Suggestions</p>
-                    <ul className="text-sm text-slate-200 space-y-1">
-                      {normalizeStringList(report.improvementTips).map((tip, idx) => (
-                        <li key={idx}>- {tip}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Log insights</p>
-                  <ul className="text-sm text-slate-200 space-y-1">
-                    {normalizeStringList(report.logInsights).map((insight, idx) => (
-                      <li key={idx}>- {insight}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
           </div>
 
           <div id="assessment" className="glass-panel rounded-2xl p-4 border border-white/10 space-y-3">

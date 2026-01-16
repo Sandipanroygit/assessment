@@ -173,3 +173,17 @@ export function dataUrlToFile(dataUrl: string, fileName: string) {
   for (let i = 0; i < bytes.length; i += 1) buf[i] = bytes.charCodeAt(i);
   return new File([buf], fileName, { type: mime });
 }
+
+export async function trackPageView(page: string) {
+  const { error } = await supabase.from("page_views").insert({ page });
+  if (error) throw error;
+}
+
+export async function fetchPageViewCount(page: string) {
+  const { count, error } = await supabase
+    .from("page_views")
+    .select("*", { count: "exact", head: true })
+    .eq("page", page);
+  if (error) throw error;
+  return count ?? 0;
+}

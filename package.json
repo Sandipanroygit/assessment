@@ -13,9 +13,9 @@
         "seed:admin": "node --env-file=.env.local scripts/seed-admin.mjs"
     },
     "dependencies": {
-    "@supabase/supabase-js": "^2.87.1",
-    "next": "^15.5.9",
-    "react": "^19.0.0",
+        "@supabase/supabase-js": "^2.87.1",
+        "next": "^15.5.9",
+        "react": "^19.0.0",
         "react-dom": "^19.0.0"
     },
     "devDependencies": {
