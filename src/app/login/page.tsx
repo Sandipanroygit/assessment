@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
 
 type AuthMode = "login" | "signup";
 type UserRole = "admin" | "teacher" | "student";
-type Profile = { full_name?: string; role?: string };
+type Profile = { full_name?: string; role?: string; grade?: string };
 
 const gradeOptions = ["Grade 5", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
 
@@ -23,18 +24,42 @@ export default function LoginPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("full_name, role")
-      .eq("id", userId)
-      .maybeSingle();
-    if (error) {
-      console.warn("Profile fetch error", error.message);
-      return null;
-    }
-    return data;
-  }, []);
+  const ensureProfile = useCallback(
+    async (user: User): Promise<Profile | null> => {
+      const { data: existing, error: fetchError } = await supabase
+        .from("profiles")
+        .select("full_name, role, grade")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (!fetchError && existing) return existing as Profile;
+      if (fetchError) {
+        console.warn("Profile fetch error", fetchError.message);
+      }
+
+      const roleFromMeta = (user.user_metadata?.role as string | undefined) ?? "customer";
+      const payload: Record<string, string> = {
+        id: user.id,
+        full_name: (user.user_metadata?.full_name as string | undefined) ?? user.email ?? "Customer",
+        role: roleFromMeta,
+      };
+      const gradeFromMeta = user.user_metadata?.grade as string | undefined;
+      if (gradeFromMeta) {
+        payload.grade = gradeFromMeta;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .insert(payload)
+        .select("full_name, role, grade")
+        .single();
+      if (error) {
+        console.warn("Profile insert failed", error.message);
+        return existing ?? null;
+      }
+      return data as Profile;
+    },
+    []
+  );
 
   const routeByRole = useCallback(
     (roleValue?: string, emailOverride?: string | null) => {
@@ -54,12 +79,12 @@ export default function LoginPage() {
       const { data } = await supabase.auth.getUser();
       const user = data.user;
       if (user) {
-        const profile = await fetchProfile(user.id);
+        const profile = await ensureProfile(user);
         routeByRole(profile?.role ?? user.user_metadata.role, user.email);
       }
     };
     checkSession();
-  }, [fetchProfile, routeByRole]);
+  }, [ensureProfile, routeByRole]);
 
   const handleRoleChange = (nextRole: UserRole) => {
     setRole(nextRole);
@@ -87,7 +112,7 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
-    const profile = await fetchProfile(data.user.id);
+    const profile = await ensureProfile(data.user);
     setStatus(`Hi ${profile?.full_name ?? data.user.email}! Redirecting...`);
     routeByRole(profile?.role ?? data.user.user_metadata.role, data.user.email);
   };

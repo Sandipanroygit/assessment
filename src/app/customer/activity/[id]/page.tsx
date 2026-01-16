@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useState } from "react";
+import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
 import { fetchCurriculumModuleById, uploadFileToBucket } from "@/lib/supabaseData";
 import type { CurriculumModule } from "@/types";
@@ -66,6 +67,34 @@ type ActivitySubmission = {
 };
 
 const buildFileMeta = (file: File): UploadMeta => ({ name: file.name, size: file.size, type: file.type });
+const ensureProfile = async (user: User) => {
+  const { data: existing, error: fetchError } = await supabase
+    .from("profiles")
+    .select("full_name, role, grade")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!fetchError && existing) return existing as { full_name?: string; role?: string; grade?: string };
+  if (fetchError) {
+    console.warn("Profile fetch error", fetchError.message);
+  }
+  const payload: Record<string, string> = {
+    id: user.id,
+    full_name: (user.user_metadata?.full_name as string | undefined) ?? user.email ?? "Student",
+    role: (user.user_metadata?.role as string | undefined) ?? "customer",
+  };
+  const grade = user.user_metadata?.grade as string | undefined;
+  if (grade) payload.grade = grade;
+  const { data: inserted, error: insertError } = await supabase
+    .from("profiles")
+    .insert(payload)
+    .select("full_name, role, grade")
+    .single();
+  if (insertError) {
+    console.warn("Profile insert failed", insertError.message);
+    return existing ?? null;
+  }
+  return inserted as { full_name?: string; role?: string; grade?: string };
+};
 const normalizeStringList = (value: unknown) => {
   if (Array.isArray(value)) {
     return value.filter((item) => typeof item === "string");
@@ -494,12 +523,8 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
         const user = data.user;
         if (!user) return;
         setUserId(user.id);
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("full_name")
-          .eq("id", user.id)
-          .maybeSingle();
-        setStudentName(profileData?.full_name ?? user.user_metadata.full_name ?? user.email ?? "Student");
+        const profile = await ensureProfile(user);
+        setStudentName(profile?.full_name ?? user.user_metadata.full_name ?? user.email ?? "Student");
       } catch {
         setUserId(null);
       }
@@ -892,17 +917,14 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
         if (!res.ok || !data?.report) {
           throw new Error("AI report unavailable.");
         }
-        if (data?.fallback) {
-          usedFallback = true;
-          throw new Error("AI fallback response");
-        }
+        usedFallback = Boolean(data?.fallback);
         nextReport = data.report as AiReport;
         setReport(nextReport);
-        setReportStatus(null);
+        setReportStatus(usedFallback ? "AI unavailable; showing fallback report." : null);
         setPdfStatus(null);
       } catch {
         setReportStatus(
-          usedFallback ? "AI unavailable right now. Please retry in a moment." : "Unable to generate AI report right now.",
+          usedFallback ? "AI unavailable right now. Showing fallback guidance only." : "Unable to generate AI report right now.",
         );
         if (!nextReport) {
           setReport(null);
@@ -1330,28 +1352,6 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
                           >
                             {isSelected ? "Viewing" : "View"}
                           </button>
-                          {submission.logUrl ? (
-                            <a
-                              className="px-3 py-1.5 rounded-lg border border-white/15 text-xs text-slate-200 hover:border-accent-strong"
-                              href={submission.logUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              download
-                            >
-                              Log
-                            </a>
-                          ) : null}
-                          {submission.plotUrl ? (
-                            <a
-                              className="px-3 py-1.5 rounded-lg border border-white/15 text-xs text-slate-200 hover:border-accent-strong"
-                              href={submission.plotUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              download
-                            >
-                              Plot
-                            </a>
-                          ) : null}
                           <button
                             type="button"
                             className="px-3 py-1.5 rounded-lg border border-red-500/50 text-xs text-red-200 hover:border-red-500 disabled:opacity-50"
