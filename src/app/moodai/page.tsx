@@ -189,7 +189,7 @@ function MoodAIPageContent() {
         </div>
       )}
 
-      <div className="flex-1 min-h-0 flex gap-4">
+      <div className="flex-1 min-h-0 flex">
         <div className="flex-1 glass-panel rounded-2xl border border-white/10 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
             {messages.length === 0 && (
@@ -247,23 +247,6 @@ function MoodAIPageContent() {
             </div>
           </div>
         </div>
-
-        {module && (
-          <div className="hidden lg:block w-80 glass-panel rounded-2xl border border-white/10 p-4 flex-col gap-4 overflow-y-auto">
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-accent-strong mb-2">Code Context</p>
-              <div className="rounded-xl border border-white/10 bg-black/30 p-3">
-                <pre className="text-xs text-slate-300 whitespace-pre-wrap max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10">
-                  {codeDisplay}
-                </pre>
-              </div>
-            </div>
-            <div className="mt-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-accent-strong mb-2">Description</p>
-              <p className="text-sm text-slate-300 leading-relaxed">{module.description}</p>
-            </div>
-          </div>
-        )}
       </div>
     </main>
   );
