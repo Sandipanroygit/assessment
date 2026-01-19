@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { dataUrlToFile, fetchCurriculumModules, fetchProducts, uploadFileToBucket } from "@/lib/supabaseData";
 
 type Profile = { full_name?: string; role?: string };
+type AdminUser = { id: string; full_name: string; role: string; displayRole: string; created_at?: string | null };
 
 const orderActions = ["Track status", "View receipts", "Export reports"];
 
@@ -22,6 +23,14 @@ const formatPrice = (value: number) =>
     value,
   );
 
+const formatJoinedDate = (value?: string | null) => (value ? new Date(value).toLocaleDateString() : "—");
+const mapRoleLabel = (role?: string | null) => {
+  if (role === "admin") return "Admin";
+  if (role === "teacher") return "Teacher";
+  if (role === "student") return "Student";
+  return "Student"; // default display for legacy "customer" roles
+};
+
 export default function AdminPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -30,6 +39,7 @@ export default function AdminPage() {
   const router = useRouter();
   const [curriculumRows, setCurriculumRows] = useState<CurriculumModule[]>([]);
   const [productRows, setProductRows] = useState<Product[]>([]);
+  const [userRows, setUserRows] = useState<AdminUser[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingCurriculumId, setEditingCurriculumId] = useState<string | null>(null);
   const curriculumEditRef = useRef<HTMLDivElement | null>(null);
@@ -110,19 +120,34 @@ export default function AdminPage() {
       if (!isAdmin) return;
       setDataStatus("Loading shared data...");
       try {
-        const [nextCurriculum, nextProducts] = await Promise.all([
+        const [nextCurriculum, nextProducts, usersResponse] = await Promise.all([
           fetchCurriculumModules({ includeUnpublished: true }),
           fetchProducts(),
+          supabase.from("profiles").select("id,full_name,role,created_at").order("created_at", { ascending: false }),
         ]);
         if (cancelled) return;
+
+        if (usersResponse.error) {
+          throw usersResponse.error;
+        }
+
+        const users = (usersResponse.data ?? []).map((user) => ({
+          id: user.id,
+          full_name: user.full_name ?? "Unnamed user",
+          role: user.role ?? "customer",
+          displayRole: mapRoleLabel(user.role),
+          created_at: user.created_at,
+        }));
         setCurriculumRows(nextCurriculum);
         setProductRows(nextProducts);
+        setUserRows(users);
         setDataStatus(null);
       } catch (err) {
         if (cancelled) return;
         const message = err instanceof Error ? err.message : "Unable to load data";
         setCurriculumRows([]);
         setProductRows([]);
+        setUserRows([]);
         setDataStatus(`Database not reachable (${message}).`);
       }
     };
@@ -400,6 +425,42 @@ export default function AdminPage() {
                   </td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="glass-panel rounded-2xl p-6 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-white">Registered users</h2>
+          <span className="text-sm text-slate-400">{userRows.length} total</span>
+        </div>
+        <p className="text-sm text-slate-300">See everyone who has signed up for the platform.</p>
+        <div className="overflow-auto">
+          <table className="min-w-full text-sm text-slate-200">
+            <thead>
+              <tr className="text-left text-slate-400 border-b border-white/10">
+                <th className="py-2 pr-3">Name</th>
+                <th className="py-2 pr-3">Role</th>
+                <th className="py-2 pr-3">Joined</th>
+              </tr>
+            </thead>
+            <tbody>
+              {userRows.length === 0 ? (
+                <tr className="border-b border-white/5">
+                  <td className="py-2 pr-3 text-slate-300" colSpan={3}>
+                    No users found yet. New accounts will appear here automatically after signup.
+                  </td>
+                </tr>
+              ) : (
+                userRows.map((user) => (
+                  <tr key={user.id} className="border-b border-white/5">
+                    <td className="py-2 pr-3 font-semibold text-white">{user.full_name}</td>
+                    <td className="py-2 pr-3 text-slate-300">{user.displayRole}</td>
+                    <td className="py-2 pr-3 text-slate-300">{formatJoinedDate(user.created_at)}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
