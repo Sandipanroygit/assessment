@@ -23,12 +23,31 @@ const formatPrice = (value: number) =>
     value,
   );
 
-const formatJoinedDate = (value?: string | null) => (value ? new Date(value).toLocaleDateString() : "—");
+const formatJoinedDate = (value?: string | null) => (value ? new Date(value).toLocaleDateString() : "-");
+const sanitizeSegment = (value: string) =>
+  value.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase() || "item";
+const studentLabelFromFile = (fileName: string) => {
+  const base = fileName.replace(/\.json$/i, "");
+  const parts = base.split("-");
+  if (parts.length > 1 && /^\d+$/.test(parts[parts.length - 1])) parts.pop();
+  const label = parts.join(" ").replace(/-+/g, " ").trim();
+  return label || "Student";
+};
 const mapRoleLabel = (role?: string | null) => {
   if (role === "admin") return "Admin";
   if (role === "teacher") return "Teacher";
   if (role === "student") return "Student";
   return "Student"; // default display for legacy "customer" roles
+};
+
+type SentimentFile = {
+  moduleId: string;
+  moduleTitle: string;
+  studentLabel: string;
+  fileName: string;
+  path: string;
+  url: string;
+  createdAt?: string | null;
 };
 
 export default function AdminPage() {
@@ -40,10 +59,12 @@ export default function AdminPage() {
   const [curriculumRows, setCurriculumRows] = useState<CurriculumModule[]>([]);
   const [productRows, setProductRows] = useState<Product[]>([]);
   const [userRows, setUserRows] = useState<AdminUser[]>([]);
+  const [sentimentFiles, setSentimentFiles] = useState<SentimentFile[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingCurriculumId, setEditingCurriculumId] = useState<string | null>(null);
   const curriculumEditRef = useRef<HTMLDivElement | null>(null);
   const [dataStatus, setDataStatus] = useState<string | null>(null);
+  const [sentimentStatus, setSentimentStatus] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     name: "",
     price: "",
@@ -157,6 +178,57 @@ export default function AdminPage() {
       cancelled = true;
     };
   }, [isAdmin]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadSentiment = async () => {
+      if (!isAdmin) return;
+      if (curriculumRows.length === 0) {
+        setSentimentFiles([]);
+        setSentimentStatus("No activities found yet.");
+        return;
+      }
+      setSentimentStatus("Loading sentiment summaries...");
+      try {
+        const bucket = supabase.storage.from("curriculum-assets");
+        const collected: SentimentFile[] = [];
+        // Fetch sentiment files per activity folder
+        for (const mod of curriculumRows) {
+          const folder = `sentiment-metrics/${sanitizeSegment(mod.title)}-${sanitizeSegment(mod.id)}`;
+          const { data, error } = await bucket.list(folder, { limit: 100, offset: 0, sortBy: { column: "name", order: "desc" } });
+          if (error || !data) continue;
+          data
+            .filter((item) => item.name.toLowerCase().endsWith(".json"))
+            .forEach((item) => {
+              const path = `${folder}/${item.name}`;
+              const { data: publicUrl } = bucket.getPublicUrl(path);
+              collected.push({
+                moduleId: mod.id,
+                moduleTitle: mod.title,
+                studentLabel: studentLabelFromFile(item.name),
+                fileName: item.name,
+                path,
+                url: publicUrl.publicUrl,
+                createdAt: (item as { created_at?: string; updated_at?: string }).created_at || (item as { updated_at?: string }).updated_at,
+              });
+            });
+        }
+        if (cancelled) return;
+        const sorted = collected.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+        setSentimentFiles(sorted);
+        setSentimentStatus(sorted.length ? null : "No sentiment summaries yet.");
+      } catch (err) {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : "Unable to load sentiment files";
+        setSentimentFiles([]);
+        setSentimentStatus(message);
+      }
+    };
+    void loadSentiment();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, curriculumRows]);
 
   return (
     <main className="section-padding space-y-8">
@@ -425,6 +497,56 @@ export default function AdminPage() {
                   </td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="glass-panel rounded-2xl p-6 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-white">Sentiment summaries</h2>
+          <span className="text-sm text-slate-400">{sentimentFiles.length} files</span>
+        </div>
+        <p className="text-sm text-slate-300">JSON summaries from MoodAI guided questions, grouped by activity.</p>
+        {sentimentStatus && (
+          <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">{sentimentStatus}</div>
+        )}
+        <div className="overflow-auto">
+          <table className="min-w-full text-sm text-slate-200">
+            <thead>
+              <tr className="text-left text-slate-400 border-b border-white/10">
+                <th className="py-2 pr-3">Activity</th>
+                <th className="py-2 pr-3">Student</th>
+                <th className="py-2 pr-3">File</th>
+                <th className="py-2 pr-3">Download</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sentimentFiles.length === 0 ? (
+                <tr className="border-b border-white/5">
+                  <td className="py-2 pr-3 text-slate-300" colSpan={4}>
+                    No sentiment summaries yet.
+                  </td>
+                </tr>
+              ) : (
+                sentimentFiles.map((file) => (
+                  <tr key={file.path} className="border-b border-white/5">
+                    <td className="py-2 pr-3 font-semibold text-white">{file.moduleTitle}</td>
+                    <td className="py-2 pr-3 text-slate-300">{file.studentLabel}</td>
+                    <td className="py-2 pr-3 text-slate-300">{file.fileName}</td>
+                    <td className="py-2 pr-3">
+                      <a
+                        href={file.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-1 rounded-lg bg-emerald-500 text-slate-900 font-semibold text-xs border border-emerald-400 hover:bg-emerald-400 hover:border-emerald-300"
+                      >
+                        Open
+                      </a>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
