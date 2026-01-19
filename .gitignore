@@ -68,3 +68,4 @@ pnpm-lock.yaml
 # pnpm-lock.yaml
 # Local env
 .env.local
+env.env

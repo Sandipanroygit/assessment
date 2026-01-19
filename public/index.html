@@ -1,0 +1,4440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Assessment Studio</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    /* ===========================
+       THEME & ANIMATED BACKGROUND
+       =========================== */
+    :root {
+      --bg-1: #020617;
+      --bg-2: #020617;
+      --bg-3: #111827;
+      --bg-4: #0b1120;
+      --card: #020617;
+      --card-alt: #020617;
+      --accent: #3b82f6;
+      --accent-soft: rgba(59, 130, 246, 0.2);
+      --accent-strong: #2563eb;
+      --accent-grad: linear-gradient(135deg, #3b82f6, #8b5cf6, #ec4899);
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --border: #1f2937;
+      --danger: #f97373;
+      --success: #22c55e;
+      --radius-xl: 18px;
+      --radius-lg: 12px;
+      --shadow-soft: 0 22px 60px rgba(0, 0, 0, 0.65);
+      --shadow-soft-sm: 0 14px 36px rgba(0, 0, 0, 0.5);
+      --transition-fast: 0.18s ease-out;
+      --transition-med: 0.35s ease;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+        "Segoe UI", sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      /* Animated gradient background */
+      background: radial-gradient(circle at 0% 0%, #0b1120 0, #020617 45%, #020617 100%);
+      background-size: 200% 200%;
+      animation: gradientShift 18s ease-in-out infinite alternate;
+    }
+
+    /* Soft moving blobs behind everything */
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      inset: -20%;
+      background:
+        radial-gradient(circle at 0% 0%, rgba(59,130,246,0.25), transparent 60%),
+        radial-gradient(circle at 100% 100%, rgba(236,72,153,0.20), transparent 60%);
+      opacity: 0.8;
+      z-index: -2;
+      filter: blur(12px);
+      animation: blobFloat 30s ease-in-out infinite alternate;
+    }
+
+    @keyframes gradientShift {
+      0% {
+        background-position: 0% 50%;
+      }
+      50% {
+        background-position: 50% 100%;
+      }
+      100% {
+        background-position: 100% 50%;
+      }
+    }
+
+    @keyframes blobFloat {
+      0% {
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+      50% {
+        transform: translate3d(30px, -40px, 0) scale(1.05);
+      }
+      100% {
+        transform: translate3d(-20px, 30px, 0) scale(1.02);
+      }
+    }
+
+.ai-loader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 6px;
+  animation: fadePulse 1.4s infinite;
+}
+
+.ai-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px solid rgba(148, 163, 184, 0.4);
+  border-top-color: var(--accent);
+  animation: spin 0.7s linear infinite;
+}
+
+.btn-primary[disabled] {
+  opacity: 0.55;
+  cursor: default;
+  box-shadow: none;
+  filter: grayscale(0.2);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(6px);
+}
+
+.modal-card {
+  position: relative;
+  z-index: 51;
+  max-width: 900px;
+  width: 100%;
+  max-height: 80vh;
+  background: radial-gradient(circle at top, #020617 0, #020617 70%);
+  border-radius: 18px;
+  border: 1px solid rgba(31, 41, 55, 0.96);
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.85);
+  padding: 14px 16px 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.modal-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;   /* left content + right logo */
+  width: 100%;
+}
+
+.brand-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-right {
+  display: flex;
+  align-items: center;
+}
+
+.dept-logo {
+  height: 34px;     /* adjust size here */
+  width: auto;
+  object-fit: contain;
+
+  border-radius: 6px;
+  padding: 3px 6px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.25);
+  backdrop-filter: blur(4px);
+}
+
+.icon-button {
+  padding: 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(55, 65, 81, 0.9);
+  background: rgba(15, 23, 42, 0.95);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border var(--transition-fast), background var(--transition-fast),
+    transform var(--transition-fast), box-shadow var(--transition-fast);
+  margin-left: 8px;
+}
+
+.icon-button:hover {
+  border-color: var(--accent);
+  background: rgba(15, 23, 42, 1);
+  box-shadow: 0 0 14px rgba(59, 130, 246, 0.5);
+  transform: translateY(-1px);
+}
+
+.icon-dots {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 30%, #60a5fa, #1d4ed8);
+  position: relative;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.7);
+}
+
+.icon-dots::before,
+.icon-dots::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: 8px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.9);
+  transform: translateX(-50%);
+}
+
+.icon-dots::before {
+  top: 5px;
+}
+
+.icon-dots::after {
+  bottom: 5px;
+}
+
+/* Right side settings & contact panel */
+.sidepanel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: none; /* toggled via JS */
+}
+
+.sidepanel-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(248, 250, 252, 0.85); /* soft light */
+  backdrop-filter: blur(4px);
+}
+
+.sidepanel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  max-width: 320px;
+  width: 100%;
+  background: #ffffff; /* plain white panel */
+  border-left: 1px solid #e5e7eb;
+  box-shadow: -18px 0 40px rgba(15, 23, 42, 0.12);
+  padding: 14px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  animation: slideInRight 0.25s ease-out;
+  color: #111827; /* dark text inside */
+}
+.sidepanel-title,
+.sidepanel-sub,
+.sidepanel-section h4,
+.sidepanel-control,
+.sidepanel-control .helper-text {
+  color: #111827;
+}
+
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(40px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.sidepanel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.sidepanel-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sidepanel-sub {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.sidepanel-section {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(55, 65, 81, 0.9);
+}
+
+.sidepanel-section h4 {
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.sidepanel-control {
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.sidepanel-control label {
+  text-transform: none;
+  letter-spacing: 0;
+  margin-bottom: 4px;
+}
+
+.sidepanel-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.option-pill {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #f3f4f6;        /* light grey */
+  color: #111827;             /* dark text */
+  cursor: pointer;
+  transition: border var(--transition-fast), background var(--transition-fast),
+    color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.option-pill.active {
+  border-color: #2563eb;
+  background: #e0edff;
+  color: #111827;
+  box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
+}
+
+.theme-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.95);
+  cursor: pointer;
+}
+
+.theme-swatch.theme-blue {
+  background: linear-gradient(135deg, #0ea5e9, #1d4ed8);
+}
+
+.theme-swatch.theme-white {
+  background: #f9fafb;
+}
+
+.theme-swatch.theme-pink {
+  background: linear-gradient(135deg, #f9a8d4, #ec4899);
+}
+
+
+/* Global font scaling */
+body.font-small {
+  font-size: 12px;
+}
+
+body.font-default {
+  font-size: 14px;
+}
+
+body.font-large {
+  font-size: 16px;
+}
+
+
+/* Animated theme backgrounds (all share the same gradientShift animation) */
+body {
+  background-size: 220% 220%;
+  animation: gradientShift 20s ease-in-out infinite alternate;
+}
+
+/* Deep blue / indigo default */
+body.theme-blue {
+  background:
+    radial-gradient(circle at 0% 0%, #1d4ed8 0%, #020617 40%, #020617 100%);
+}
+
+/* Soft white / subtle grey glow */
+body.theme-white {
+  background:
+    radial-gradient(circle at top left, rgba(209, 213, 219, 0.35), transparent 55%),
+    linear-gradient(135deg, #f9fafb 0%, #f3f4f6 40%, #e5e7eb 100%);
+}
+
+/* Pink marketing gradient */
+body.theme-pink {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(244,114,182,0.45), transparent 55%),
+    linear-gradient(135deg, #ffe4f1 0%, #fecdd3 35%, #fee2e2 80%, #fce7f3 100%);
+}
+
+.theme-swatch.active {
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.8);
+  outline: 2px solid rgba(59, 130, 246, 0.9);
+  outline-offset: 2px;
+}
+
+
+
+
+    /* =================================
+       LAYOUT: HEADER / MAIN / FOOTER
+       ================================= */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(20px);
+      background: linear-gradient(
+        to bottom,
+        rgba(15, 23, 42, 0.96),
+        rgba(15, 23, 42, 0.9),
+        transparent
+      );
+      border-bottom: 1px solid rgba(15, 23, 42, 0.96);
+    }
+
+    .nav {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 14px;
+      background-image: conic-gradient(
+        from 180deg,
+        #3b82f6,
+        #8b5cf6,
+        #ec4899,
+        #f97316,
+        #3b82f6
+      );
+      padding: 2px;
+      box-shadow: 0 0 22px rgba(59, 130, 246, 0.6);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .brand-logo::after {
+      /* Shimmer animation */
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        130deg,
+        transparent 20%,
+        rgba(255, 255, 255, 0.4) 50%,
+        transparent 80%
+      );
+      transform: translateX(-100%);
+      animation: logoShimmer 2.8s ease-in-out infinite;
+    }
+
+    @keyframes logoShimmer {
+      0% {
+        transform: translateX(-130%);
+      }
+      60% {
+        transform: translateX(130%);
+      }
+      100% {
+        transform: translateX(130%);
+      }
+    }
+
+    .brand-logo-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 12px;
+      background: radial-gradient(circle at 30% 20%, #1f2937, #020617 75%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 15px;
+      color: #e5e7eb;
+    }
+
+    .brand-text-main {
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      font-size: 17px;
+    }
+
+    .brand-text-sub {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .nav-pill {
+      display: inline-flex;
+      gap: 10px;
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      box-shadow: var(--shadow-soft-sm);
+      align-items: center;
+    }
+
+    .nav-pill span {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .nav-pill strong {
+      font-size: 11px;
+      color: #e5e7eb;
+    }
+
+    main {
+      flex: 1;
+      max-width: 1200px;
+      margin: 10px auto 32px;
+      padding: 0 18px 24px;
+    }
+
+    footer {
+      max-width: 1200px;
+      margin: 0 auto 18px;
+      padding: 0 18px;
+      font-size: 11px;
+      color: var(--muted);
+      opacity: 0.8;
+    }
+
+    /* ===========
+       UTILITIES
+       =========== */
+    .section {
+      display: none;
+      animation: fadeInUp 0.4s ease-out;
+    }
+    .section.active {
+      display: block;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .hero-grid {
+  max-width: 1000px;          /* center the stack */
+  margin: 16px auto 0;        /* center horizontally */
+  display: flex;
+  flex-direction: column;     /* stack cards vertically */
+  gap: 18px;
+}
+
+/* ==================
+   New hero layout
+   ================== */
+
+/* ==================
+   New hero layout
+   ================== */
+.hero-landing {
+  max-width: 1100px;
+  margin: 2px auto 0;  /* much less space above the hero */
+  padding: 20px 28px 32px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) 420px;
+  gap: 32px;
+  align-items: center;
+  border-radius: 24px;
+
+  background:
+    radial-gradient(circle at 0% 0%, rgba(59,130,246,0.25), transparent 55%),
+    radial-gradient(circle at 100% 0%, rgba(236,72,153,0.25), transparent 55%);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 26px 70px rgba(15, 23, 42, 0.6);
+  background-size: 200% 200%;
+  animation: gradientShift 18s ease-in-out infinite alternate;
+}
+
+@media (max-width: 900px) {
+  .hero-landing {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 16px 20px 28px;
+  }
+}
+
+/* Lighter hero when in white/pink theme */
+body.light-theme .hero-landing {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(252, 231, 243, 0.7), #ffffff 50%);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+}
+
+
+@media (max-width: 900px) {
+  .hero-landing {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Lighter hero when in white/pink theme */
+body.light-theme .hero-landing {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(252, 231, 243, 0.7), #ffffff 50%);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+}
+
+@media (max-width: 900px) {
+  .hero-landing {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.hero-main {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* NEW BIG HERO TITLE */
+/* Big hero title */
+.hero-big-title {
+  font-size: 30px !important;       /* try 60px; increase to 72px if you want bigger */
+  font-weight: 800;
+  line-height: 1.1;
+  color: #ffffff;
+  margin-bottom: 16px;
+}
+
+/* Pink highlight (already in your HTML as <span class="hero-big-highlight">) */
+.hero-big-highlight {
+  color: #ff4ec7;
+}
+
+/* Light-mode support */
+body.light-theme .hero-big-title {
+  color: #111827 !important;
+}
+
+
+/* Pink highlight */
+.hero-big-highlight {
+  color: #ff4ec7;
+}
+
+/* New tagline */
+.hero-tagline-new {
+  font-size: 18px !important;
+  color: #4b5563;
+  max-width: 600px;
+  margin-bottom: 28px;
+}
+/* BLUE THEME / DARK BACKGROUND → make tagline white */
+body.theme-blue .hero-tagline-new {
+  color: #e5e7eb !important;
+}
+
+/* (optional) dark blue theme variants */
+body:not(.light-theme) .hero-tagline-new {
+  color: #e5e7eb !important;
+}
+
+
+/* Light-mode support */
+body.light-theme .hero-big-title {
+  color: #1f2937 !important;
+}
+
+body.light-theme .hero-tagline-new {
+  color: #4b5563 !important;
+}
+
+
+/* brighter variant for white/pink themes */
+body.light-theme .hero-kicker {
+  background: linear-gradient(90deg, #2563eb, #a855f7, #ec4899, #2563eb);
+  background-size: 300% 300%;
+}
+
+/* animations for hero kicker */
+@keyframes glowPulse {
+  0%   { text-shadow: 0 0 4px rgba(129, 140, 248, 0.4); }
+  50%  { text-shadow: 0 0 12px rgba(236, 72, 153, 0.7); }
+  100% { text-shadow: 0 0 4px rgba(129, 140, 248, 0.4); }
+}
+
+@keyframes shimmerMove {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+
+.hero-heading {
+  font-size: 40px;
+  line-height: 1.2;
+  font-weight: 800;
+  color: #f9fafb;
+  max-width: 580px;
+}
+
+/* In light theme, hero heading becomes dark */
+body.light-theme .hero-heading {
+  color: #111827;
+}
+
+.hero-heading .hero-highlight-strong {
+  background: var(--accent-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero-tagline {
+  font-size: 14px;
+  color: var(--muted);
+  max-width: 480px;
+}
+
+.hero-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.hero-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(15, 23, 42, 0.8);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.hero-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.9);
+}
+
+/* Right-hand hero visual card */
+.hero-visual {
+  min-height: 260px;
+}
+
+.hero-visual-header {
+  margin-bottom: 10px;
+}
+
+.hero-visual-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hero-visual-step {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(55, 65, 81, 0.9);
+}
+
+.hero-step-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #a5b4fc;
+  margin-bottom: 3px;
+}
+
+.hero-step-text {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.hero-visual-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.hero-stat {
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(55, 65, 81, 0.9);
+  font-size: 11px;
+}
+
+.hero-stat-number {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.hero-stat-label {
+  color: var(--muted);
+}
+
+/* ==================
+   Before / After section
+   ================== */
+
+.benefits-section {
+  max-width: 1100px;
+  margin: 40px auto 0;
+}
+
+.benefits-heading {
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.benefits-subheading {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+
+.benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+}
+
+@media (max-width: 900px) {
+  .benefits-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.benefit-column {
+  background: #0b1120;
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.9);
+  box-shadow: var(--shadow-soft-sm);
+  padding: 16px 18px 14px;
+}
+
+/* Light theme: benefits become white cards */
+body.light-theme .benefit-column {
+  background: #ffffff !important;
+  border-color: #e5e7eb !important;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+}
+
+body.light-theme .benefit-list li {
+  color: #374151 !important;
+}
+
+.benefit-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.benefit-title.before {
+  color: #f97373;
+}
+
+.benefit-title.after {
+  color: #4ade80;
+}
+
+.benefit-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.benefit-list li {
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin-bottom: 6px;
+}
+
+.benefit-list li::before {
+  content: "•";
+  font-size: 14px;
+  margin-top: 1px;
+  color: rgba(248, 250, 252, 0.85);
+}
+
+
+    .card {
+      background: radial-gradient(circle at 0% 0%, #111827 0, #020617 58%);
+      border-radius: var(--radius-xl);
+      border: 1px solid rgba(31, 41, 55, 0.95);
+      box-shadow: var(--shadow-soft);
+      padding: 18px 18px 16px;
+      position: relative;
+      overflow: hidden;
+      transform: translateY(0);
+      transition: transform var(--transition-med), box-shadow var(--transition-med),
+        border var(--transition-fast);
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: -40%;
+      background: radial-gradient(
+        circle at top right,
+        rgba(59, 130, 246, 0.16),
+        transparent 65%
+      );
+      opacity: 0.8;
+      pointer-events: none;
+    }
+
+    .card:hover {
+      transform: translateY(-4px) translateZ(0);
+      box-shadow: 0 26px 70px rgba(15, 23, 42, 0.96);
+      border-color: rgba(59, 130, 246, 0.6);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .card-title {
+      font-size: 17px;
+      font-weight: 600;
+    }
+
+    .card-subtitle {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      font-size: 11px;
+      border-radius: 999px;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    .pill-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #22c55e;
+      box-shadow: 0 0 12px rgba(34, 197, 94, 0.9);
+    }
+
+    .badge-soft {
+      font-size: 11px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: rgba(59, 130, 246, 0.18);
+      border: 1px solid rgba(59, 130, 246, 0.55);
+      color: #bfdbfe;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .hero-title {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+    }
+
+    .hero-highlight {
+      background: var(--accent-grad);
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+    }
+
+    .hero-text {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 10px;
+    }
+
+    .hero-list {
+      list-style: none;
+      margin: 0 0 8px;
+      padding: 0;
+    }
+
+    .hero-list li {
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 5px;
+    }
+
+    .hero-bullet {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent-strong);
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    button {
+      border: none;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .btn-primary {
+      position: relative;
+      overflow: hidden;
+      padding: 9px 16px;
+      border-radius: 999px;
+      background-image: var(--accent-grad);
+      color: #eef2ff;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 16px 36px rgba(79, 70, 229, 0.45);
+      transition: transform var(--transition-fast),
+        box-shadow var(--transition-fast), filter var(--transition-fast);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 20px 50px rgba(79, 70, 229, 0.55);
+      filter: brightness(1.05);
+    }
+
+    .btn-ghost {
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      color: var(--muted);
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background var(--transition-fast), border var(--transition-fast),
+        color var(--transition-fast), transform var(--transition-fast);
+    }
+
+    .btn-ghost:hover {
+      background: rgba(15, 23, 42, 1);
+      border-color: var(--accent);
+      color: #e5e7eb;
+      transform: translateY(-1px);
+    }
+
+    .btn-sm {
+      padding: 6px 10px;
+      font-size: 11px;
+      border-radius: 999px;
+    }
+
+    .btn-outline {
+      padding: 6px 12px;
+      font-size: 11px;
+      border-radius: 999px;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      background: rgba(15, 23, 42, 0.95);
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: var(--transition-fast);
+    }
+
+    .btn-outline:hover {
+      border-color: var(--accent);
+      color: #e5e7eb;
+      transform: translateY(-1px);
+    }
+
+    .role-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 12px;
+    }
+
+    @media (max-width: 700px) {
+      .role-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .role-card {
+      background: radial-gradient(circle at top left, #020617 0, #020617 70%);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      padding: 12px 12px 10px;
+      box-shadow: var(--shadow-soft-sm);
+      cursor: pointer;
+      transition: transform var(--transition-fast), box-shadow var(--transition-fast),
+        border var(--transition-fast), background var(--transition-fast);
+    }
+
+    .role-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--accent);
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.95);
+      background: radial-gradient(circle at top, #111827 0, #020617 80%);
+    }
+
+    .role-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .role-label {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .role-tag {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      color: var(--muted);
+    }
+
+    .role-desc {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+
+    .role-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .chip {
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.98);
+      border: 1px solid rgba(55, 65, 81, 0.9);
+    }
+
+    .sparkline {
+      width: 120px;
+      height: 32px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 20% 0, rgba(59, 130, 246, 0.5), transparent),
+        radial-gradient(circle at 80% 100%, rgba(139, 92, 246, 0.4), transparent);
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .sparkline::before {
+      content: "";
+      position: absolute;
+      inset: 5px;
+      border-radius: 999px;
+      border: 1px dashed rgba(148, 163, 184, 0.4);
+    }
+
+    .sparkline-line {
+      position: absolute;
+      inset: 7px 10px;
+      border-radius: 999px;
+      background: linear-gradient(
+        90deg,
+        rgba(59, 130, 246, 0),
+        rgba(59, 130, 246, 1),
+        rgba(139, 92, 246, 1),
+        rgba(236, 72, 153, 0)
+      );
+      opacity: 0.9;
+      filter: blur(0.6px);
+    }
+
+    .sparkline-pulse {
+      position: absolute;
+      right: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: #22c55e;
+      box-shadow: 0 0 12px rgba(34, 197, 94, 0.9);
+    }
+
+    /* ==================
+       AUTH: SIGN-UP/LOGIN
+       ================== */
+    .auth-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr);
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    @media (max-width: 900px) {
+      .auth-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .auth-card {
+      background: radial-gradient(circle at top left, #020617 0, #020617 60%);
+      border-radius: var(--radius-xl);
+      border: 1px solid rgba(31, 41, 55, 0.96);
+      padding: 18px 18px 12px;
+      box-shadow: var(--shadow-soft);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .auth-card::before {
+      content: "";
+      position: absolute;
+      inset: -50%;
+      background: radial-gradient(
+        circle at bottom right,
+        rgba(59, 130, 246, 0.15),
+        transparent 60%
+      );
+      opacity: 0.9;
+      pointer-events: none;
+    }
+
+    .auth-body {
+      position: relative;
+      z-index: 1;
+    }
+
+    .auth-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .auth-sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .auth-tabs {
+      display: inline-flex;
+      border-radius: 999px;
+      border: 1px solid rgba(55, 65, 81, 0.96);
+      padding: 2px;
+      background: rgba(15, 23, 42, 0.96);
+      margin-bottom: 10px;
+    }
+
+    .auth-tab {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      color: var(--muted);
+      transition: var(--transition-fast);
+    }
+
+    .auth-tab.active {
+      background: var(--accent-grad);
+      color: #eef2ff;
+      box-shadow: 0 0 12px rgba(79, 70, 229, 0.7);
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 10px;
+    }
+
+    label {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 3px;
+      display: block;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    input[type="text"],
+    input[type="date"],
+    input[type="number"],
+    input[type="password"],
+    textarea,
+    select {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 9px;
+      border: 1px solid rgba(55, 65, 81, 0.96);
+      background: rgba(15, 23, 42, 0.98);
+      color: var(--text);
+      font-size: 12px;
+      outline: none;
+      transition: border var(--transition-fast), box-shadow var(--transition-fast),
+        background var(--transition-fast), transform var(--transition-fast);
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.6);
+      background: rgba(15, 23, 42, 1);
+      transform: translateY(-0.5px);
+    }
+
+    textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    .field-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .field-row > div {
+      flex: 1 1 120px;
+    }
+
+    .divider {
+      margin: 14px 0 8px;
+      border-top: 1px dashed rgba(55, 65, 81, 0.96);
+    }
+
+    .subtle {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .flex {
+      display: flex;
+    }
+
+    .flex-between {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .gap-4 {
+      gap: 4px;
+    }
+
+    .gap-6 {
+      gap: 6px;
+    }
+
+    .align-center {
+      align-items: center;
+    }
+
+    .mt-4 {
+      margin-top: 4px;
+    }
+
+    .mt-6 {
+      margin-top: 6px;
+    }
+
+    .mt-8 {
+      margin-top: 8px;
+    }
+
+    .mb-4 {
+      margin-bottom: 4px;
+    }
+
+    .mb-8 {
+      margin-bottom: 8px;
+    }
+
+    /* ==========================
+       DASHBOARD & QUESTION AREAS
+       ========================== */
+    .dashboard-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    @media (max-width: 1000px) {
+      .dashboard-layout {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .panel {
+      background: radial-gradient(circle at 0 0, #020617 0, #020617 65%);
+      border-radius: 16px;
+      border: 1px solid rgba(31, 41, 55, 0.96);
+      padding: 14px 14px 10px;
+      box-shadow: var(--shadow-soft-sm);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      gap: 10px;
+    }
+
+    .panel-title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .panel-sub {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .panel-body {
+      margin-top: 4px;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      gap: 10px;
+    }
+
+    @media (max-width: 800px) {
+      .two-col {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-size: 11px;
+      color: var(--muted);
+      user-select: none;
+    }
+
+    .toggle input {
+      display: none;
+    }
+
+    .toggle-pill {
+      width: 34px;
+      height: 18px;
+      border-radius: 999px;
+      background: rgba(31, 41, 55, 0.96);
+      border: 1px solid rgba(55, 65, 81, 0.96);
+      position: relative;
+      transition: background var(--transition-fast), border var(--transition-fast);
+    }
+
+    .toggle-thumb {
+      position: absolute;
+      top: 1px;
+      left: 2px;
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      background: #9ca3af;
+      transition: transform var(--transition-fast), background var(--transition-fast),
+        box-shadow var(--transition-fast);
+    }
+
+    .toggle input:checked + .toggle-pill {
+      background: rgba(59, 130, 246, 0.25);
+      border-color: var(--accent);
+    }
+
+    .toggle input:checked + .toggle-pill .toggle-thumb {
+      transform: translateX(14px);
+      background: #3b82f6;
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+    }
+
+    .helper-text {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    .chips-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .chip-soft {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.98);
+      border: 1px solid rgba(55, 65, 81, 0.96);
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .chip-soft-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      background: var(--accent-strong);
+    }
+
+    .pill-small {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      border: 1px solid rgba(55, 65, 81, 0.96);
+      background: rgba(15, 23, 42, 0.98);
+      color: var(--muted);
+    }
+
+    .pill-outline-accent {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(59, 130, 246, 0.8);
+      background: rgba(15, 23, 42, 0.98);
+      color: #bfdbfe;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .qmode-tabs {
+      display: inline-flex;
+      border-radius: 999px;
+      border: 1px solid rgba(55, 65, 81, 0.96);
+      padding: 2px;
+      background: rgba(15, 23, 42, 0.96);
+      margin-bottom: 6px;
+    }
+
+    .qmode-tab {
+      font-size: 11px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      cursor: pointer;
+      color: var(--muted);
+      transition: var(--transition-fast);
+    }
+
+    .qmode-tab.active {
+      background: rgba(15, 23, 42, 0.98);
+      color: #e5e7eb;
+      border: 1px solid rgba(59, 130, 246, 0.9);
+      box-shadow: 0 0 12px rgba(37, 99, 235, 0.5);
+    }
+
+    .hint-text {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .scroll-sm {
+      max-height: 280px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .empty-state {
+      font-size: 11px;
+      color: var(--muted);
+      padding: 8px 8px;
+      border-radius: 10px;
+      border: 1px dashed rgba(55, 65, 81, 0.96);
+      background: rgba(15, 23, 42, 0.98);
+      margin-top: 6px;
+    }
+
+    .test-list {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 320px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .test-card {
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.98);
+      border: 1px solid rgba(31, 41, 55, 0.96);
+      padding: 8px 10px;
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr);
+      gap: 8px;
+      cursor: pointer;
+      transition: border var(--transition-fast), background var(--transition-fast),
+        transform var(--transition-fast), box-shadow var(--transition-fast);
+    }
+
+    .test-card:hover {
+      border-color: var(--accent);
+      background: radial-gradient(circle at top left, #0b1120 0, #020617 70%);
+      transform: translateY(-1px);
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.95);
+    }
+
+    .test-main {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .test-title {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .test-meta {
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .test-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 2px;
+    }
+
+    .test-side {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .test-stats {
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+    }
+
+    .badge-mini {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(55, 65, 81, 0.96);
+      background: rgba(15, 23, 42, 0.98);
+      color: var(--muted);
+    }
+
+    .status-pill {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(55, 65, 81, 0.96);
+      background: rgba(15, 23, 42, 0.98);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #22c55e;
+      box-shadow: 0 0 10px rgba(34, 197, 94, 0.9);
+    }
+
+    .status-dot-muted {
+      background: #9ca3af;
+      box-shadow: none;
+    }
+
+    /* ===========
+       QUESTIONS
+       =========== */
+    .question-card {
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.98);
+      border: 1px solid rgba(31, 41, 55, 0.96);
+      padding: 10px 10px 8px;
+      margin-bottom: 8px;
+    }
+
+    .question-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .question-label {
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .question-type {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      border: 1px solid rgba(55, 65, 81, 0.96);
+      color: var(--muted);
+    }
+
+    .question-body {
+      font-size: 12px;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .options-list {
+      list-style: none;
+      padding-left: 0;
+      margin: 0;
+    }
+
+    .options-list li {
+      margin-bottom: 4px;
+    }
+
+    .options-list label {
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .options-list input[type="radio"] {
+      width: 13px;
+      height: 13px;
+      accent-color: #3b82f6;
+    }
+
+    .score-chip {
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 1);
+      border: 1px solid rgba(55, 65, 81, 0.96);
+      color: var(--muted);
+    }
+
+    .result-banner {
+      border-radius: 13px;
+      background: radial-gradient(circle at top left, #0b1120 0, #020617 80%);
+      border: 1px solid rgba(59, 130, 246, 0.6);
+      padding: 10px 10px 8px;
+      margin-top: 10px;
+      box-shadow: 0 14px 40px rgba(15, 23, 42, 0.96);
+    }
+
+    .result-main {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .result-score {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .result-sub {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .badge-success,
+    .badge-danger {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .badge-success {
+      background: rgba(34, 197, 94, 0.18);
+      border: 1px solid rgba(34, 197, 94, 0.6);
+      color: #bbf7d0;
+    }
+
+    .badge-danger {
+      background: rgba(248, 113, 113, 0.18);
+      border: 1px solid rgba(248, 113, 113, 0.6);
+      color: #fecaca;
+    }
+
+    .muted-box {
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--muted);
+      padding: 6px 8px;
+      border-radius: 10px;
+      background: rgba(15, 23, 42, 0.98);
+      border: 1px dashed rgba(55, 65, 81, 0.96);
+    }
+
+    .text-xs {
+      font-size: 10px;
+    }
+
+    .text-muted {
+      color: var(--muted);
+    }
+
+    .text-accent {
+      color: #bfdbfe;
+    }
+
+    .text-right {
+      text-align: right;
+    }
+
+    .fade-pulse {
+      animation: fadePulse 1.5s infinite;
+    }
+
+    @keyframes fadePulse {
+      0% {
+        opacity: 0.4;
+      }
+      50% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 0.4;
+      }
+}
+/* ===========================================
+   EXTRA LIGHT THEME FIXES (side panel, tabs)
+   =========================================== */
+
+/* Side panel background + text */
+body.light-theme .sidepanel-backdrop {
+  background: rgba(248, 250, 252, 0.75);
+}
+
+body.light-theme .sidepanel {
+  background: #ffffff;
+  border-left: 1px solid #e5e7eb;
+  color: #111827;
+  box-shadow: -18px 0 40px rgba(15, 23, 42, 0.12);
+}
+
+body.light-theme .sidepanel-title,
+body.light-theme .sidepanel-sub,
+body.light-theme .sidepanel-section h4,
+body.light-theme .sidepanel-control,
+body.light-theme .sidepanel-control .helper-text {
+  color: #111827 !important;
+}
+
+/* Font size option pills in side panel */
+body.light-theme .option-pill {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #111827;
+}
+
+body.light-theme .option-pill.active {
+  border-color: #2563eb;
+  box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
+}
+
+/* Theme swatches outline in light mode */
+body.light-theme .theme-swatch {
+  border-color: #e5e7eb;
+}
+
+/* Auth tabs (Sign up / Log in) */
+body.light-theme .auth-tabs {
+  background: #fee2f2;          /* light pink band instead of grey */
+  border-color: #f9a8d4;
+}
+
+body.light-theme .auth-tab {
+  color: #4b5563;
+}
+
+body.light-theme .auth-tab.active {
+  background: var(--accent-grad);
+  color: #ffffff;
+}
+
+/* Question creation mode tabs (AI-generated / Manual entry) */
+body.light-theme .qmode-tabs {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+}
+
+body.light-theme .qmode-tab {
+  background: transparent;
+  color: #4b5563;
+}
+
+body.light-theme .qmode-tab.active {
+  background: #111827;
+  color: #ffffff;
+  border-color: #111827;
+}
+
+/* Toggle pill (Reveal correct answers) */
+body.light-theme .toggle-pill {
+  background: #e5e7eb;
+  border-color: #d1d5db;
+}
+
+    }
+/* Light theme overrides */
+body.light-theme {
+  color: #111827;
+}
+
+/* Remove dark blobs */
+body.light-theme::before,
+body.light-theme::after {
+  display: none;
+}
+
+/* Header bar */
+body.light-theme header {
+  background: linear-gradient(
+    to bottom,
+    rgba(248, 250, 252, 0.96),
+    rgba(248, 250, 252, 0.9),
+    transparent
+  );
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* All main tiles / cards */
+body.light-theme .card,
+body.light-theme .panel,
+body.light-theme .auth-card,
+body.light-theme .role-card,
+body.light-theme .test-card,
+body.light-theme .question-card,
+body.light-theme .result-banner {
+  background: #ffffff !important;
+  border-color: #e5e7eb !important;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+}
+
+/* Remove inner gradient glows on cards */
+body.light-theme .card::before,
+body.light-theme .panel::before,
+body.light-theme .auth-card::before {
+  display: none;
+}
+
+/* Pills, badges, nav pill, etc. */
+body.light-theme .pill,
+body.light-theme .nav-pill,
+body.light-theme .chip-soft,
+body.light-theme .badge-soft,
+body.light-theme .status-pill,
+body.light-theme .pill-small,
+body.light-theme .badge-mini {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  color: #111827;
+}
+
+/* Ghost / outline buttons on light background */
+body.light-theme .btn-ghost,
+body.light-theme .btn-outline {
+  background: #ffffff;
+  border-color: #e5e7eb;
+  color: #374151;
+}
+
+/* Text colours in cards & panels */
+body.light-theme .card-title,
+body.light-theme .hero-title,
+body.light-theme .hero-text,
+body.light-theme .panel-title,
+body.light-theme .panel-sub,
+body.light-theme .auth-title,
+body.light-theme .auth-sub,
+body.light-theme .role-label,
+body.light-theme .role-desc,
+body.light-theme .test-title,
+body.light-theme .test-meta,
+body.light-theme .question-body,
+body.light-theme .result-score,
+body.light-theme .result-sub,
+body.light-theme .muted-box,
+body.light-theme .helper-text,
+body.light-theme .subtle,
+body.light-theme label {
+  color: #111827 !important;
+}
+
+/* Inputs on light background */
+body.light-theme input[type="text"],
+body.light-theme input[type="date"],
+body.light-theme input[type="number"],
+body.light-theme input[type="password"],
+body.light-theme textarea,
+body.light-theme select {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  color: #111827;
+}
+
+/* Empty-state / muted boxes */
+body.light-theme .empty-state,
+body.light-theme .muted-box {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  color: #4b5563;
+}
+/* Extra light overrides for dark chips and role tags */
+body.light-theme .chip,
+body.light-theme .role-tag {
+  background: #f9fafb !important;
+  border-color: #e5e7eb !important;
+  color: #111827 !important;
+}
+
+/* Make general text dark in light theme */
+body.light-theme p,
+body.light-theme li,
+body.light-theme span,
+body.light-theme h1,
+body.light-theme h2,
+body.light-theme h3,
+body.light-theme h4,
+body.light-theme h5,
+body.light-theme h6 {
+  color: #111827 !important;
+}
+
+/* Light hero snapshot card + steps */
+body.light-theme .hero-visual.card {
+  background: #ffffff !anit; /* typo? fix below */
+  border-color: #e5e7eb !important;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+}
+
+body.light-theme .hero-visual-step {
+  background: #f9fafb !important;
+  border-color: #e5e7eb !important;
+}
+
+body.light-theme .hero-step-label {
+  color: #4b5563 !important;
+}
+
+body.light-theme .hero-step-text {
+  color: #374151 !important;
+}
+
+body.light-theme .hero-stat {
+  background: #f9fafb !important;
+  border-color: #e5e7eb !important;
+  color: #111827 !important;
+}
+
+/* Nav pill text (Mode / Teacher access) */
+body.light-theme .nav-pill span,
+body.light-theme .nav-pill strong {
+  color: #111827 !important;
+}
+
+/* Keep primary button text white so the gradient still pops */
+body.light-theme .btn-primary {
+  color: #ffffff !important;
+}
+
+/* ============================================
+   FIX: Hero chips stay dark in White / Pink theme
+   ============================================ */
+
+body.light-theme .hero-chip {
+  background: #f3f4f6 !important;   /* Light pill */
+  border: 1px solid #e5e7eb !important;
+  color: #111827 !important;        /* Dark text */
+}
+
+body.light-theme .hero-chip .hero-dot {
+  background: #16a34a !important;   /* Bright green */
+  box-shadow: 0 0 8px rgba(22, 163, 74, 0.7) !important;
+}
+
+.btn-danger {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  color: #b91c1c;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.btn-danger:hover {
+  background: #fecaca;
+  border-color: #f87171;
+  color: #7f1d1d;
+}
+
+/* Restore colorful accents in light themes */
+
+/* Hero top label: AI-POWERED ASSESSMENT STUDIO FOR SCHOOLS */
+body.light-theme .hero-kicker {
+  color: #2563eb !important;  /* bright indigo */
+}
+
+/* Step labels in the snapshot card */
+body.light-theme .hero-step-label {
+  color: #4f46e5 !important;  /* purple/indigo accent */
+}
+
+/* Before / After titles */
+body.light-theme .benefit-title.before {
+  color: #dc2626 !important;  /* red */
+}
+
+body.light-theme .benefit-title.after {
+  color: #059669 !important;
+}
+
+/* FIX: AI-Powered should remain pink in light themes */
+body.light-theme .hero-big-highlight {
+  color: #ff4ec7 !important;
+}
+
+
+/* Fancy color + glow for "automatically with AI." */
+.hero-highlight-animated {
+  background: linear-gradient(90deg, #ff3db1, #b15cff, #5f9bff);
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: shine 3s infinite linear;
+  font-weight: 900;
+}
+
+/* Glow animation */
+@keyframes shine {
+  0% { filter: brightness(0.9); }
+  50% { filter: brightness(1.4); }
+  100% { filter: brightness(0.9); }
+}
+
+/* Light theme override */
+body.light-theme .hero-big-title {
+  color: #111827 !important;
+}
+
+  </style>
+</head>
+<body>
+  <!-- ==============
+       HEADER
+       ============== -->
+    <header>
+    <div class="nav">
+      <div class="brand">
+
+        <!-- Left: AI logo + title -->
+        <div class="brand-left">
+          <div class="brand-logo">
+            <div class="brand-logo-inner">AI</div>
+          </div>
+
+          <div>
+            <div class="brand-text-main">Assessment Studio</div>
+            <div class="brand-text-sub">
+              AI-Generated Tests • Manual Control • Analytics
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Mode pill + menu button -->
+        <div class="brand-right">
+          <div class="nav-pill">
+            <span>Mode</span>
+            <strong id="currentRoleLabel">Select role</strong>
+          </div>
+
+          <button
+            class="icon-button"
+            type="button"
+            onclick="toggleSidePanel(true)"
+            aria-label="Open menu"
+          >
+            <span class="icon-dots"></span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================
+       MAIN CONTENT
+       =================== -->
+  <main>
+    <!-- SECTION 1: Landing / role selection -->
+<section id="roleSelectionSection" class="section active">
+  <!-- HERO BANNER -->
+  <div class="hero-landing">
+    <div class="hero-main">
+      <h1 class="hero-big-title">
+  Elevate Learning with 
+  <span class="hero-big-highlight">AI-Powered</span> Assessments
+</h1>
+
+<p class="hero-tagline-new">
+  Create, deliver & grade assessments automatically with AI.
+  Upload notes, PDFs or links, generate MCQ & written questions,
+  let students attempt online, and access instant scoring & exports.
+</p>
+
+
+      <div class="hero-actions">
+        <button class="btn-primary" onclick="goToAuth('teacher')">
+          Enter as Teacher
+          <span>→</span>
+        </button>
+        <button class="btn-ghost" onclick="goToAuth('student')">
+          Try as Student
+        </button>
+      </div>
+
+      <div class="hero-metrics">
+        <div class="hero-chip">
+          <span class="hero-dot"></span>
+          AI question generation & auto-marking
+        </div>
+        <div class="hero-chip">
+          <span class="hero-dot"></span>
+          MCQ, short & descriptive questions
+        </div>
+        <div class="hero-chip">
+          <span class="hero-dot"></span>
+          Per-test CSVs for marks & analysis
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-visual card">
+      <div class="hero-visual-header">
+        <span class="badge-soft">Live Classroom Snapshot</span>
+      </div>
+      <div class="hero-visual-body">
+        <div class="hero-visual-step">
+          <div class="hero-step-label">Step 1</div>
+          <div class="hero-step-text">
+            Upload a chapter PDF or paste your lesson notes.
+          </div>
+        </div>
+        <div class="hero-visual-step">
+          <div class="hero-step-label">Step 2</div>
+          <div class="hero-step-text">
+            Generate AI questions, review or edit, then publish the test.
+          </div>
+        </div>
+        <div class="hero-visual-step">
+          <div class="hero-step-label">Step 3</div>
+          <div class="hero-step-text">
+            Students attempt online; AI scores MCQs & short answers and exports CSV.
+          </div>
+        </div>
+
+        <div class="hero-visual-footer">
+          <div class="hero-stat">
+            <span class="hero-stat-number">3×</span>
+            <span class="hero-stat-label">faster test creation</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-number">0</span>
+            <span class="hero-stat-label">extra tools needed</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BEFORE / AFTER SECTION -->
+  <div class="benefits-section">
+    <h2 class="benefits-heading">Why use AI Assessment Studio?</h2>
+    <p class="benefits-subheading">
+      Move from manual marking & scattered tools to a single AI-first assessment workflow.
+    </p>
+
+    <div class="benefits-grid">
+      <div class="benefit-column">
+        <h3 class="benefit-title before">Before</h3>
+        <ul class="benefit-list">
+          <li>🔴Time-consuming question creation for every chapter.</li>
+          <li>🔴Manual marking & inconsistent feedback between teachers.</li>
+          <li>🔴Results scattered across Google Forms, sheets and paper.</li>
+          <li>🔴Hard to reuse tests or adapt them for different sections.</li>
+        </ul>
+      </div>
+      <div class="benefit-column">
+        <h3 class="benefit-title after">With AI Assessment Studio</h3>
+        <ul class="benefit-list">
+          <li>✅️Generate full assessments from notes, PDFs or links in seconds.</li>
+          <li>✅️AI-assisted marking with consistent rubrics across classes.</li>
+          <li>✅️All attempts & marks stored per test, exportable as CSV.</li>
+          <li>✅️Teachers can duplicate, edit and reuse assessments instantly.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 2: Auth (sign up / log in) -->
+    <section id="authSection" class="section">
+      <div class="auth-grid">
+        <!-- TEACHER AUTH -->
+        <div class="auth-card" id="teacherAuthCard">
+          <div class="auth-body">
+            <div class="auth-title">Teacher Access</div>
+            <div class="auth-sub">
+              Create and manage assessments. First sign up, then log in using your password.
+            </div>
+
+            <div class="auth-tabs">
+              <div id="teacherTabSignup" class="auth-tab active" onclick="switchAuthTab('teacher','signup')">
+                Sign up
+              </div>
+              <div id="teacherTabLogin" class="auth-tab" onclick="switchAuthTab('teacher','login')">
+                Log in
+              </div>
+            </div>
+
+            <!-- TEACHER SIGN UP -->
+            <div id="teacherSignupForm">
+              <div class="field-grid">
+                <div>
+                  <label for="teacherSignupName">Name</label>
+                  <input id="teacherSignupName" type="text" placeholder="Your full name" />
+                </div>
+                <div>
+                  <label for="teacherSignupEmail">Email</label>
+                  <input id="teacherSignupEmail" type="text" placeholder="your.name@school.edu" />
+                </div>
+                <div>
+                  <label for="teacherSignupPassword">Password</label>
+                  <input id="teacherSignupPassword" type="password" placeholder="Create a password" />
+                </div>
+              </div>
+              <div class="divider"></div>
+              <div class="flex-between mt-4">
+                <button class="btn-ghost btn-sm" onclick="backToLanding()">← Back</button>
+                <button class="btn-primary btn-sm" onclick="teacherSignUp()">
+                  Sign up
+                </button>
+              </div>
+            </div>
+
+            <!-- TEACHER LOGIN -->
+            <div id="teacherLoginForm" style="display:none;">
+              <div class="field-grid">
+                <div>
+                  <label for="teacherLoginEmail">Email</label>
+                  <input id="teacherLoginEmail" type="text" placeholder="your.name@school.edu" />
+                </div>
+                <div>
+                  <label for="teacherLoginPassword">Password</label>
+                  <input id="teacherLoginPassword" type="password" placeholder="Enter password" />
+                </div>
+              </div>
+              <div class="divider"></div>
+              <div class="flex-between mt-4">
+                <button class="btn-ghost btn-sm" onclick="backToLanding()">← Back</button>
+                <button class="btn-primary btn-sm" onclick="teacherLogIn()">
+                  Log in
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STUDENT AUTH -->
+        <div class="auth-card" id="studentAuthCard">
+          <div class="auth-body">
+            <div class="auth-title">Student Access</div>
+            <div class="auth-sub">
+              Sign up once with your ID, then log in to attempt tests assigned to you.
+            </div>
+
+            <div class="auth-tabs">
+              <div id="studentTabSignup" class="auth-tab active" onclick="switchAuthTab('student','signup')">
+                Sign up
+              </div>
+              <div id="studentTabLogin" class="auth-tab" onclick="switchAuthTab('student','login')">
+                Log in
+              </div>
+            </div>
+
+            <!-- STUDENT SIGN UP -->
+            <div id="studentSignupForm">
+              <div class="field-grid">
+                <div>
+                  <label for="studentSignupName">Name</label>
+                  <input id="studentSignupName" type="text" placeholder="Your full name" />
+                </div>
+                <div>
+                  <label for="studentSignupId">Student ID / Roll no.</label>
+                  <input id="studentSignupId" type="text" placeholder="e.g., DP11-ECO-12" />
+                </div>
+                <div>
+                  <label for="studentSignupPassword">Password</label>
+                  <input id="studentSignupPassword" type="password" placeholder="Create a password" />
+                </div>
+              </div>
+              <div class="divider"></div>
+              <div class="flex-between mt-4">
+                <button class="btn-ghost btn-sm" onclick="backToLanding()">← Back</button>
+                <button class="btn-primary btn-sm" onclick="studentSignUp()">
+                  Sign up
+                </button>
+              </div>
+            </div>
+
+            <!-- STUDENT LOGIN -->
+            <div id="studentLoginForm" style="display:none;">
+              <div class="field-grid">
+                <div>
+                  <label for="studentLoginId">Student ID / Roll no.</label>
+                  <input id="studentLoginId" type="text" placeholder="e.g., DP11-ECO-12" />
+                </div>
+                <div>
+                  <label for="studentLoginPassword">Password</label>
+                  <input id="studentLoginPassword" type="password" placeholder="Enter password" />
+                </div>
+              </div>
+              <div class="divider"></div>
+              <div class="flex-between mt-4">
+                <button class="btn-ghost btn-sm" onclick="backToLanding()">← Back</button>
+                <button class="btn-primary btn-sm" onclick="studentLogIn()">
+                  Log in
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 3: Teacher dashboard -->
+    <section id="teacherDashboardSection" class="section">
+      <div class="flex-between mb-8">
+        <div>
+          <div class="card-title">Teacher Dashboard</div>
+          <div class="card-subtitle" id="teacherWelcome">
+            Signed in as teacher.
+          </div>
+        </div>
+        <div class="flex gap-6 align-center">
+          <span class="pill-small" id="testCountBadge">0 tests created</span>
+          <button class="btn-outline btn-sm" onclick="logoutToLanding()">Log out</button>
+        </div>
+      </div>
+
+      <div class="dashboard-layout">
+        <!-- Left: create test -->
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Create Assessment</div>
+              <div class="panel-sub">
+                Choose between manual questions or AI-generated questions per test.
+              </div>
+            </div>
+            <div class="pill-outline-accent">
+              AI Engine
+              <span class="fade-pulse">●</span>
+            </div>
+          </div>
+
+          <div class="panel-body">
+            <div class="two-col">
+              <div>
+                <div class="field-row">
+                  <div>
+                    <label for="testDateInput">Test date</label>
+                    <input id="testDateInput" type="date" />
+                  </div>
+                  <div>
+                    <label for="testSubjectInput">Subject</label>
+                    <input id="testSubjectInput" type="text" placeholder="e.g., Economics" />
+                  </div>
+                </div>
+                <div class="mt-4">
+                  <label for="testNameInput">Test name</label>
+                  <input id="testNameInput" type="text" placeholder="e.g., Market Failure – Quiz 1" />
+                </div>
+
+                <div class="mt-6">
+                  <label>Student feedback mode</label>
+                  <label class="toggle">
+                    <input type="checkbox" id="showAnswersToggle" checked />
+                    <div class="toggle-pill">
+                      <div class="toggle-thumb"></div>
+                    </div>
+                    <span>Reveal correct answers after submission</span>
+                  </label>
+                  <div class="helper-text">
+                    When disabled, students see only total score, not answer keys.
+                  </div>
+                </div>
+
+                <div class="mt-6">
+                  <label>Question creation mode</label>
+                  <div class="qmode-tabs">
+                    <div id="qmodeAiTab" class="qmode-tab active" onclick="switchQuestionMode('ai')">
+                      AI-generated
+                    </div>
+                    <div id="qmodeManualTab" class="qmode-tab" onclick="switchQuestionMode('manual')">
+                      Manual entry
+                    </div>
+                  </div>
+                  <div class="helper-text">
+                    Toggle between AI-based generation (using ChatGPT backend) and manual editor.
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label for="materialsTextInput">Topics / key notes (optional)</label>
+                <textarea
+                  id="materialsTextInput"
+                  placeholder="Write topics, outcomes, or paste notes here. AI will use these along with files/links if available."
+                ></textarea>
+                <div class="mt-4">
+                  <label for="materialsLinksInput">Reference links (optional)</label>
+                  <textarea
+                    id="materialsLinksInput"
+                    placeholder="One link per line (articles, PDFs, videos, simulations)."
+                  ></textarea>
+                </div>
+                <div class="mt-4">
+                  <label>Upload files (optional)</label>
+                  <input id="materialsFileInput" type="file" multiple style="font-size: 11px" />
+                  <div class="helper-text">
+                    In production, your backend + ChatGPT will read PDFs (even non-OCR), Docs, and images to generate questions.
+                    This front-end just passes file metadata to your API.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- AI MODE CONTROLS -->
+            <div id="aiModeControls">
+              <div class="field-row">
+                <div>
+                  <span class="subtle">MCQ questions</span>
+                  <input id="numMcqInput" type="number" min="0" value="5" style="margin-top:2px;" />
+                </div>
+                <div>
+                  <span class="subtle">Short answer</span>
+                  <input id="numShortInput" type="number" min="0" value="3" style="margin-top:2px;" />
+                </div>
+                <div>
+                  <span class="subtle">Descriptive</span>
+                  <input id="numDescInput" type="number" min="0" value="2" style="margin-top:2px;" />
+                </div>
+              </div>
+              <div class="helper-text">
+                Source content is <strong>optional</strong>. Your backend can use any combination of topics, files, and links.
+              </div>
+              <div class="flex-between mt-6">
+                <div class="subtle">
+                  This demo uses a placeholder generator.
+                  Replace it with a call to your ChatGPT backend that reads text, links, PDFs, and images.
+                </div>
+                <div class="flex gap-6 align-center">
+  <button class="btn-ghost btn-sm" onclick="resetCreateForm()">
+    Reset
+  </button>
+  <button
+    class="btn-primary btn-sm"
+    id="generateAiBtn"
+    onclick="generateQuestionsViaAI()"
+  >
+    Generate via AI
+  </button>
+</div>
+<div id="aiLoading" class="ai-loader" style="display:none;">
+  <div class="ai-spinner"></div>
+  <span>Generating questions with AI&hellip;</span>
+</div>
+
+              </div>
+            </div>
+
+            <!-- MANUAL MODE CONTROLS -->
+            <div id="manualModeControls" style="display:none; margin-top:4px;">
+              <div class="helper-text">
+                Add questions manually. You can mix MCQ, short, and descriptive questions.
+              </div>
+              <div class="mt-4">
+                <button class="btn-outline btn-sm" onclick="manualAddQuestion('mcq')">
+                  + Add MCQ
+                </button>
+                <button class="btn-outline btn-sm" onclick="manualAddQuestion('short')">
+                  + Add Short answer
+                </button>
+                <button class="btn-outline btn-sm" onclick="manualAddQuestion('descriptive')">
+                  + Add Descriptive
+                </button>
+              </div>
+            </div>
+
+            <!-- Generated or manual questions preview -->
+            <div class="mt-6 scroll-sm" id="generatedQuestionsPreview"></div>
+          </div>
+        </div>
+
+        <!-- Right: test list / CSV -->
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Your Assessments</div>
+              <div class="panel-sub">
+                Each test has its own response database: date × subject × test name.
+              </div>
+            </div>
+            <div class="chips-row">
+              <span class="chip-soft"><span class="chip-soft-dot"></span> CSV export</span>
+              <span class="chip-soft"><span class="chip-soft-dot"></span> AI scoring (demo)</span>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div id="teacherTestList" class="test-list"></div>
+            <div id="teacherEmptyState" class="empty-state">
+              No tests yet. Use “Create Assessment” to add your first one.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 4: Student dashboard -->
+    <section id="studentDashboardSection" class="section">
+      <div class="flex-between mb-8">
+        <div>
+          <div class="card-title">Student Test Portal</div>
+          <div class="card-subtitle" id="studentWelcome">
+            Signed in as student.
+          </div>
+        </div>
+        <div class="flex gap-6 align-center">
+          <span class="pill-small" id="availableTestsBadge">0 tests available</span>
+          <button class="btn-outline btn-sm" onclick="logoutToLanding()">Log out</button>
+        </div>
+      </div>
+
+      <div class="dashboard-layout">
+        <!-- Left: choose test -->
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Choose Assessment</div>
+              <div class="panel-sub">
+                Pick a test your teacher created on this demo instance.
+              </div>
+            </div>
+            <span class="badge-mini">Demo: localStorage</span>
+          </div>
+          <div class="panel-body">
+            <div class="field-grid">
+              <div>
+                <label for="studentTestSelect">Available tests</label>
+                <select id="studentTestSelect"></select>
+                <div class="hint-text">
+                  Listed as <strong>date · subject · test name</strong>.
+                </div>
+              </div>
+            </div>
+            <div class="mt-6 flex-between">
+              <div class="subtle">
+                After clicking <strong>Start test</strong>,
+                questions will load on the right.
+              </div>
+              <button class="btn-primary btn-sm" onclick="loadSelectedTestForStudent()">
+                Start test
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: test UI -->
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title" id="activeTestTitle">No test loaded</div>
+              <div class="panel-sub" id="activeTestMeta">
+                Select a test to begin.
+              </div>
+            </div>
+            <span class="status-pill" id="attemptStatusPill">
+              <span class="status-dot status-dot-muted"></span> Idle
+            </span>
+          </div>
+          <div class="panel-body">
+            <div id="testQuestionsContainer" class="scroll-sm"></div>
+            <div class="mt-6 flex-between">
+              <div class="subtle">
+                In production, your backend + ChatGPT scores written answers.
+                This demo uses placeholder scoring rules.
+              </div>
+              <button class="btn-primary btn-sm" id="submitTestBtn" onclick="submitStudentTest()" disabled>
+                Submit test
+              </button>
+            </div>
+            <div id="studentResultContainer"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==============
+       FOOTER
+       ============== -->
+  <footer>
+    Front-end prototype only. Replace browser storage and the mock AI generator with your own backend + ChatGPT API
+    (including reading text, links, PDFs, and images).
+  </footer>
+
+  <!-- ======================
+       APPLICATION SCRIPT
+       ====================== -->
+  <script>
+    /* =========================================================
+       SECTION 1 — STORAGE & MODELS (localStorage structure)
+       ========================================================= */
+    const STORAGE_KEY = "aiAssessmentStudio_v2";
+
+    // App-wide state (in-memory) for this session
+    const state = {
+      currentRole: null,
+      currentTeacher: null,
+      currentStudent: null,
+      questionMode: "ai", // 'ai' or 'manual'
+      currentGeneratedQuestions: [], // used for both AI and manual
+      activeStudentTestId: null,
+      data: {
+        tests: [],         // {id, key, date, subject, name, showAnswers, createdBy, questions[], submissions[]}
+        teachers: [],      // {email, name, passwordHash}
+        students: []       // {studentId, name, passwordHash}
+      }
+    };
+
+    function loadState() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.data) {
+          state.data.tests = parsed.data.tests || [];
+          state.data.teachers = parsed.data.teachers || [];
+          state.data.students = parsed.data.students || [];
+        }
+      } catch (e) {
+        console.warn("Failed to parse stored state", e);
+      }
+    }
+
+    function saveState() {
+      const snapshot = {
+        data: state.data
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+      // Also refresh UI pieces that depend on data:
+      refreshTeacherTestList();
+      refreshStudentTestList();
+    }
+
+    // Very light "hash" (not secure — demo only)
+    function simpleHash(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+      }
+      return hash.toString(16);
+    }
+
+    /* =====================================================
+       SECTION 2 — NAVIGATION & GENERIC UI HELPERS
+       ===================================================== */
+    function showSection(id) {
+      document.querySelectorAll(".section").forEach(sec => sec.classList.remove("active"));
+      document.getElementById(id).classList.add("active");
+    }
+
+    function goToAuth(role) {
+      state.currentRole = role;
+      const label = document.getElementById("currentRoleLabel");
+      label.textContent = role === "teacher" ? "Teacher access" : "Student access";
+
+      showSection("authSection");
+
+      // Slight emphasis on relevant card
+      document.getElementById("teacherAuthCard").style.opacity =
+        role === "teacher" ? "1" : "0.8";
+      document.getElementById("studentAuthCard").style.opacity =
+        role === "student" ? "1" : "0.8";
+    }
+
+    function backToLanding() {
+      state.currentRole = null;
+      state.currentTeacher = null;
+      state.currentStudent = null;
+      state.activeStudentTestId = null;
+      document.getElementById("currentRoleLabel").textContent = "Select role";
+      showSection("roleSelectionSection");
+    }
+
+    function logoutToLanding() {
+      state.currentRole = null;
+      state.currentTeacher = null;
+      state.currentStudent = null;
+      state.activeStudentTestId = null;
+      document.getElementById("currentRoleLabel").textContent = "Select role";
+      showSection("roleSelectionSection");
+    }
+
+    /* ======================================
+       SECTION 3 — AUTH: SIGN UP / LOG IN
+       ====================================== */
+
+    function switchAuthTab(role, mode) {
+      if (role === "teacher") {
+        document.getElementById("teacherTabSignup").classList.toggle("active", mode === "signup");
+        document.getElementById("teacherTabLogin").classList.toggle("active", mode === "login");
+        document.getElementById("teacherSignupForm").style.display = mode === "signup" ? "block" : "none";
+        document.getElementById("teacherLoginForm").style.display = mode === "login" ? "block" : "none";
+      } else {
+        document.getElementById("studentTabSignup").classList.toggle("active", mode === "signup");
+        document.getElementById("studentTabLogin").classList.toggle("active", mode === "login");
+        document.getElementById("studentSignupForm").style.display = mode === "signup" ? "block" : "none";
+        document.getElementById("studentLoginForm").style.display = mode === "login" ? "block" : "none";
+      }
+    }
+
+    // ----- Teacher auth -----
+    function teacherSignUp() {
+      const name = document.getElementById("teacherSignupName").value.trim();
+      const email = document.getElementById("teacherSignupEmail").value.trim().toLowerCase();
+      const password = document.getElementById("teacherSignupPassword").value;
+
+      if (!name || !email || !password) {
+        alert("Please fill name, email, and password.");
+        return;
+      }
+
+      if (state.data.teachers.find(t => t.email === email)) {
+        alert("A teacher account with this email already exists. Please log in.");
+        return;
+      }
+
+      state.data.teachers.push({
+        email,
+        name,
+        passwordHash: simpleHash(password)
+      });
+      saveState();
+      alert("Teacher account created. You can now log in.");
+      switchAuthTab("teacher", "login");
+      document.getElementById("teacherLoginEmail").value = email;
+    }
+
+    function teacherLogIn() {
+      const email = document.getElementById("teacherLoginEmail").value.trim().toLowerCase();
+      const password = document.getElementById("teacherLoginPassword").value;
+
+      if (!email || !password) {
+        alert("Please enter email and password.");
+        return;
+      }
+
+      const teacher = state.data.teachers.find(t => t.email === email);
+      if (!teacher || teacher.passwordHash !== simpleHash(password)) {
+        alert("Invalid teacher credentials.");
+        return;
+      }
+
+      state.currentTeacher = { name: teacher.name, email: teacher.email };
+      state.currentRole = "teacher";
+      document.getElementById("teacherWelcome").textContent =
+        `Welcome, ${teacher.name}. Create or manage your assessments below.`;
+      document.getElementById("currentRoleLabel").textContent = "Teacher mode";
+      refreshTeacherTestList();
+      showSection("teacherDashboardSection");
+    }
+
+    // ----- Student auth -----
+    function studentSignUp() {
+      const name = document.getElementById("studentSignupName").value.trim();
+      const studentId = document.getElementById("studentSignupId").value.trim();
+      const password = document.getElementById("studentSignupPassword").value;
+
+      if (!name || !studentId || !password) {
+        alert("Please fill name, student ID, and password.");
+        return;
+      }
+
+      if (state.data.students.find(s => s.studentId === studentId)) {
+        alert("A student with this ID already exists. Please log in.");
+        return;
+      }
+
+      state.data.students.push({
+        studentId,
+        name,
+        passwordHash: simpleHash(password)
+      });
+      saveState();
+      alert("Student account created. You can now log in.");
+      switchAuthTab("student", "login");
+      document.getElementById("studentLoginId").value = studentId;
+    }
+
+    function studentLogIn() {
+      const studentId = document.getElementById("studentLoginId").value.trim();
+      const password = document.getElementById("studentLoginPassword").value;
+
+      if (!studentId || !password) {
+        alert("Please enter student ID and password.");
+        return;
+      }
+
+      const student = state.data.students.find(s => s.studentId === studentId);
+      if (!student || student.passwordHash !== simpleHash(password)) {
+        alert("Invalid student credentials.");
+        return;
+      }
+
+      state.currentStudent = { name: student.name, id: student.studentId };
+      state.currentRole = "student";
+      document.getElementById("studentWelcome").textContent =
+        `Welcome, ${student.name}. Choose a test and start when ready.`;
+      document.getElementById("currentRoleLabel").textContent = "Student mode";
+      refreshStudentTestList();
+      showSection("studentDashboardSection");
+    }
+
+    /* ====================================================
+       SECTION 4 — TEACHER: QUESTION MODE & FORM RESET
+       ==================================================== */
+
+    function switchQuestionMode(mode) {
+      state.questionMode = mode;
+      document.getElementById("qmodeAiTab").classList.toggle("active", mode === "ai");
+      document.getElementById("qmodeManualTab").classList.toggle("active", mode === "manual");
+
+      document.getElementById("aiModeControls").style.display =
+        mode === "ai" ? "block" : "none";
+      document.getElementById("manualModeControls").style.display =
+        mode === "manual" ? "block" : "none";
+
+      // Clear preview when switching mode
+      state.currentGeneratedQuestions = [];
+      renderGeneratedQuestionsPreview();
+    }
+
+    function resetCreateForm() {
+      document.getElementById("testDateInput").value = "";
+      document.getElementById("testSubjectInput").value = "";
+      document.getElementById("testNameInput").value = "";
+      document.getElementById("showAnswersToggle").checked = true;
+      document.getElementById("materialsTextInput").value = "";
+      document.getElementById("materialsLinksInput").value = "";
+      document.getElementById("materialsFileInput").value = "";
+      document.getElementById("numMcqInput").value = 5;
+      document.getElementById("numShortInput").value = 3;
+      document.getElementById("numDescInput").value = 2;
+      state.currentGeneratedQuestions = [];
+      renderGeneratedQuestionsPreview();
+    }
+
+    /* ==========================================================
+       SECTION 5 — TEACHER: AI QUESTION GENERATION (FRONT-END)
+       ========================================================== */
+
+async function generateQuestionsViaAI() {
+  const date = document.getElementById("testDateInput").value;
+  const subject =
+    document.getElementById("testSubjectInput").value.trim() || "Subject";
+  const name = document.getElementById("testNameInput").value.trim();
+
+  const numMcq = document.getElementById("numMcqInput").value || "0";
+  const numShort = document.getElementById("numShortInput").value || "0";
+  const numDesc = document.getElementById("numDescInput").value || "0";
+
+  const text =
+    document.getElementById("materialsTextInput").value.trim() || "";
+  const linksRaw =
+    document.getElementById("materialsLinksInput").value.trim() || "";
+  const filesInput = document.getElementById("materialsFileInput");
+  const files = filesInput && filesInput.files
+    ? Array.from(filesInput.files)
+    : [];
+
+  if (!date || !subject || !name) {
+    alert("Please fill test date, subject, and test name before generating.");
+    return;
+  }
+
+  const totalRequested =
+    (parseInt(numMcq || "0", 10) || 0) +
+    (parseInt(numShort || "0", 10) || 0) +
+    (parseInt(numDesc || "0", 10) || 0);
+
+  if (totalRequested <= 0) {
+    alert("Please request at least one question (MCQ, short, or descriptive).");
+    return;
+  }
+
+  const linksArray = linksRaw
+    ? linksRaw.split("\n").map((l) => l.trim()).filter(Boolean)
+    : [];
+
+  const formData = new FormData();
+  formData.append("subject", subject);
+  formData.append("testName", name);
+  formData.append("numMcq", numMcq);
+  formData.append("numShort", numShort);
+  formData.append("numDesc", numDesc);
+  formData.append("topicsText", text);
+  formData.append("links", JSON.stringify(linksArray));
+  files.forEach((f) => formData.append("files", f));
+
+  const btn = document.getElementById("generateAiBtn");
+  const loader = document.getElementById("aiLoading");
+
+  try {
+    // turn ON loading state
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Generating…";
+    }
+    if (loader) loader.style.display = "flex";
+
+    const resp = await fetch("/api/tests/generate-questions", {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await resp.json();
+
+    if (!data.ok) {
+      console.error("AI error:", data);
+      alert("AI generation failed: " + (data.error || "Unknown error"));
+      return;
+    }
+
+    // Use real questions from backend
+    state.questionMode = "ai";
+    state.currentGeneratedQuestions = data.questions || [];
+
+    document.getElementById("qmodeAiTab")?.classList.add("active");
+    document.getElementById("qmodeManualTab")?.classList.remove("active");
+
+    renderGeneratedQuestionsPreview();
+  } catch (err) {
+    console.error("AI request failed:", err);
+    alert(
+      "Could not contact AI backend. Check that `npm start` is running and you opened http://localhost:4000, then try again."
+    );
+  } finally {
+    // turn OFF loading state
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "Generate via AI";
+    }
+    if (loader) loader.style.display = "none";
+  }
+}
+
+
+
+    /* ==========================================================
+       SECTION 6 — TEACHER: MANUAL QUESTION EDITOR
+       ========================================================== */
+
+    function manualAddQuestion(type) {
+      const id = "Q" + String((state.currentGeneratedQuestions.length || 0) + 1).padStart(2, "0");
+
+      if (type === "mcq") {
+        state.currentGeneratedQuestions.push({
+          id,
+          type: "mcq",
+          prompt: "",
+          options: ["", "", "", ""],
+          correctAnswer: "A",
+          maxScore: 1
+        });
+      } else if (type === "short") {
+        state.currentGeneratedQuestions.push({
+          id,
+          type: "short",
+          prompt: "",
+          options: null,
+          correctAnswer: "",
+          maxScore: 2
+        });
+      } else {
+        state.currentGeneratedQuestions.push({
+          id,
+          type: "descriptive",
+          prompt: "",
+          options: null,
+          correctAnswer: "",
+          maxScore: 4
+        });
+      }
+
+      renderGeneratedQuestionsPreview();
+    }
+
+    function updateManualQuestionField(index, field, value, subIndex = null) {
+      const q = state.currentGeneratedQuestions[index];
+      if (!q) return;
+
+      if (field === "prompt") {
+        q.prompt = value;
+      } else if (field === "maxScore") {
+        const num = parseInt(value || "0", 10);
+        q.maxScore = Number.isNaN(num) ? 0 : num;
+      } else if (field === "correctAnswer") {
+        q.correctAnswer = value;
+      } else if (field === "option" && subIndex !== null && Array.isArray(q.options)) {
+        q.options[subIndex] = value;
+      }
+
+      // No need to re-render every keystroke beyond updating this reference.
+    }
+
+    function deleteManualQuestion(index) {
+      state.currentGeneratedQuestions.splice(index, 1);
+      renderGeneratedQuestionsPreview();
+    }
+
+    /* ==========================================================
+       SECTION 7 — COMMON: RENDER PREVIEW & SAVE TEST
+       ========================================================== */
+
+    function renderGeneratedQuestionsPreview() {
+      const container = document.getElementById("generatedQuestionsPreview");
+      container.innerHTML = "";
+
+      if (!state.currentGeneratedQuestions || state.currentGeneratedQuestions.length === 0) {
+        container.innerHTML =
+          '<div class="empty-state">No questions yet. Use the AI generator or manual editor to add questions.</div>';
+        return;
+      }
+
+      const frag = document.createDocumentFragment();
+
+      state.currentGeneratedQuestions.forEach((q, idx) => {
+        const card = document.createElement("div");
+        card.className = "question-card";
+
+        const header = document.createElement("div");
+        header.className = "question-header";
+
+        const label = document.createElement("div");
+        label.className = "question-label";
+        label.textContent = `Q${idx + 1}`;
+
+        const right = document.createElement("div");
+        right.className = "flex gap-6 align-center";
+
+        const type = document.createElement("div");
+        type.className = "question-type";
+        type.textContent =
+          q.type === "mcq"
+            ? "MCQ"
+            : q.type === "short"
+            ? "Short answer"
+            : "Descriptive";
+
+        const score = document.createElement("div");
+        score.className = "score-chip";
+
+        // Editable score in manual mode; display-only in AI mode
+        if (state.questionMode === "manual") {
+          const input = document.createElement("input");
+          input.type = "number";
+          input.min = "0";
+          input.value = q.maxScore;
+          input.style.width = "50px";
+          input.style.fontSize = "11px";
+          input.oninput = e => updateManualQuestionField(idx, "maxScore", e.target.value);
+          score.textContent = "";
+          score.appendChild(input);
+        } else {
+          score.textContent = `${q.maxScore} marks`;
+        }
+
+        right.appendChild(type);
+        right.appendChild(score);
+
+        header.appendChild(label);
+        header.appendChild(right);
+
+        card.appendChild(header);
+
+        // Prompt
+        if (state.questionMode === "manual") {
+          const promptInput = document.createElement("textarea");
+          promptInput.placeholder = "Type your question prompt here…";
+          promptInput.value = q.prompt || "";
+          promptInput.oninput = e => updateManualQuestionField(idx, "prompt", e.target.value);
+          card.appendChild(promptInput);
+        } else {
+          const body = document.createElement("div");
+          body.className = "question-body";
+          body.textContent = q.prompt;
+          card.appendChild(body);
+        }
+
+        // Options / answer fields
+        if (q.type === "mcq") {
+          const list = document.createElement("ul");
+          list.className = "options-list";
+
+          (q.options || []).forEach((opt, i) => {
+            const li = document.createElement("li");
+            if (state.questionMode === "manual") {
+              const labelEl = document.createElement("label");
+              labelEl.textContent = String.fromCharCode(65 + i) + ".";
+              const input = document.createElement("input");
+              input.type = "text";
+              input.style.flex = "1";
+              input.value = opt;
+              input.placeholder = `Option ${String.fromCharCode(65 + i)}`;
+              input.oninput = e =>
+                updateManualQuestionField(idx, "option", e.target.value, i);
+              labelEl.prepend(input);
+              li.appendChild(labelEl);
+            } else {
+              li.innerHTML = `<label><input type="radio" disabled /> ${String.fromCharCode(
+                65 + i
+              )}. ${opt}</label>`;
+            }
+            list.appendChild(li);
+          });
+
+          card.appendChild(list);
+
+          if (state.questionMode === "manual") {
+            const ansRow = document.createElement("div");
+            ansRow.className = "hint-text";
+            const sel = document.createElement("select");
+            ["A", "B", "C", "D"].forEach(letter => {
+              const opt = document.createElement("option");
+              opt.value = letter;
+              opt.textContent = "Correct: " + letter;
+              if (q.correctAnswer === letter) opt.selected = true;
+              sel.appendChild(opt);
+            });
+            sel.onchange = e => updateManualQuestionField(idx, "correctAnswer", e.target.value);
+            ansRow.appendChild(sel);
+            card.appendChild(ansRow);
+          } else {
+            const meta = document.createElement("div");
+            meta.className = "hint-text";
+            meta.textContent = `Correct option: ${q.correctAnswer}`;
+            card.appendChild(meta);
+          }
+        } else if (q.type === "short" || q.type === "descriptive") {
+          if (state.questionMode === "manual") {
+            const ans = document.createElement("textarea");
+            ans.placeholder =
+              q.type === "short"
+                ? "Optional: write expected key points for answer (keywords)..."
+                : "Optional: write a model answer / marking guide…";
+            ans.value = q.correctAnswer || "";
+            ans.oninput = e =>
+              updateManualQuestionField(idx, "correctAnswer", e.target.value);
+            card.appendChild(ans);
+          } else {
+            const meta = document.createElement("div");
+            meta.className = "hint-text";
+            if (q.correctAnswer) {
+              meta.textContent =
+                "Expected answer / marking guide: " + q.correctAnswer;
+            } else {
+              meta.textContent = "Max score: " + q.maxScore;
+            }
+            card.appendChild(meta);
+          }
+        }
+
+        if (state.questionMode === "manual") {
+          const controls = document.createElement("div");
+          controls.className = "flex-between mt-4";
+          const info = document.createElement("div");
+          info.className = "subtle";
+          info.textContent = "Manual question";
+          const delBtn = document.createElement("button");
+          delBtn.className = "btn-ghost btn-sm";
+          delBtn.textContent = "Delete";
+          delBtn.onclick = () => deleteManualQuestion(idx);
+          controls.appendChild(info);
+          controls.appendChild(delBtn);
+          card.appendChild(controls);
+        }
+
+        frag.appendChild(card);
+      });
+
+      const footerRow = document.createElement("div");
+      footerRow.className = "flex-between mt-6 align-center";
+      footerRow.innerHTML = `
+        <div class="subtle">
+          ${state.questionMode === "ai"
+            ? "AI questions ready. Save this test to the database."
+            : "Manual questions ready. Save this test to the database."}
+        </div>
+        <button class="btn-primary btn-sm" onclick="saveCurrentTest()">
+          Save test
+        </button>
+      `;
+
+      container.appendChild(frag);
+      container.appendChild(footerRow);
+    }
+
+    function buildTestKey(date, subject, name) {
+      return `${date}__${subject.trim()}__${name.trim()}`;
+    }
+
+    function saveCurrentTest() {
+      const date = document.getElementById("testDateInput").value;
+      const subject = document.getElementById("testSubjectInput").value.trim();
+      const name = document.getElementById("testNameInput").value.trim();
+      const showAnswers = document.getElementById("showAnswersToggle").checked;
+      const text = document.getElementById("materialsTextInput").value.trim();
+      const linksRaw = document.getElementById("materialsLinksInput").value.trim();
+
+      if (!date || !subject || !name) {
+        alert("Please fill test date, subject, and name.");
+        return;
+      }
+
+      if (!state.currentGeneratedQuestions || state.currentGeneratedQuestions.length === 0) {
+        alert("No questions available. Use AI or manual editor first.");
+        return;
+      }
+
+      const key = buildTestKey(date, subject, name);
+      const existingIndex = state.data.tests.findIndex(t => t.key === key);
+      const materials = {
+        text,
+        links: linksRaw
+          ? linksRaw.split("\n").map(l => l.trim()).filter(Boolean)
+          : []
+      };
+
+      if (existingIndex !== -1) {
+        const ok = confirm(
+          "A test with this date, subject, and name already exists. Replace its questions? (Submissions will be preserved.)"
+        );
+        if (!ok) return;
+        const existing = state.data.tests[existingIndex];
+        state.data.tests[existingIndex] = {
+          ...existing,
+          date,
+          subject,
+          name,
+          showAnswers,
+          materials,
+          questions: state.currentGeneratedQuestions
+        };
+      } else {
+        const id = "T-" + Date.now().toString(36);
+        state.data.tests.push({
+          id,
+          key,
+          date,
+          subject,
+          name,
+          showAnswers,
+          createdBy: state.currentTeacher ? state.currentTeacher.name : "Teacher",
+          materials,
+          questions: state.currentGeneratedQuestions,
+          submissions: []
+        });
+      }
+
+      saveState();
+      alert("Test saved in local database (demo).");
+      state.currentGeneratedQuestions = [];
+      document.getElementById("generatedQuestionsPreview").innerHTML = "";
+      refreshTeacherTestList();
+      refreshStudentTestList();
+    }
+
+    /* =====================================================
+       SECTION 8 — TEACHER: TEST LIST & CSV EXPORT
+       ===================================================== */
+
+    function refreshTeacherTestList() {
+      const list = document.getElementById("teacherTestList");
+      const empty = document.getElementById("teacherEmptyState");
+      const badge = document.getElementById("testCountBadge");
+
+      const tests = state.data.tests || [];
+      badge.textContent = tests.length === 1 ? "1 test created" : `${tests.length} tests created`;
+
+      list.innerHTML = "";
+      if (!tests.length) {
+        empty.style.display = "block";
+        return;
+      }
+      empty.style.display = "none";
+
+      tests
+        .slice()
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .forEach(t => {
+          const card = document.createElement("div");
+          card.className = "test-card";
+
+          const main = document.createElement("div");
+          main.className = "test-main";
+
+          const title = document.createElement("div");
+          title.className = "test-title";
+          title.textContent = t.name;
+
+          const meta = document.createElement("div");
+          meta.className = "test-meta";
+          meta.innerHTML = `
+            <span>📅 ${t.date}</span>
+            <span>📘 ${t.subject}</span>
+            <span>❓ ${t.questions.length} questions</span>
+          `;
+
+          const tags = document.createElement("div");
+          tags.className = "test-tags";
+          const types = [...new Set(t.questions.map(q => q.type))];
+          types.forEach(type => {
+            const tag = document.createElement("span");
+            tag.className = "badge-mini";
+            tag.textContent =
+              type === "mcq"
+                ? "MCQ"
+                : type === "short"
+                ? "Short answer"
+                : "Descriptive";
+            tags.appendChild(tag);
+          });
+
+          main.appendChild(title);
+          main.appendChild(meta);
+          main.appendChild(tags);
+
+          const side = document.createElement("div");
+          side.className = "test-side";
+
+          const stats = document.createElement("div");
+          stats.className = "test-stats";
+          const attempts = t.submissions ? t.submissions.length : 0;
+          stats.innerHTML = `
+            <span>Attempts: <strong>${attempts}</strong></span>
+            <span class="text-xs text-muted">${t.showAnswers ? "Keys visible" : "Keys hidden"}</span>
+          `;
+
+          const actions = document.createElement("div");
+          actions.className = "flex gap-4";
+          const csvBtn = document.createElement("button");
+          csvBtn.className = "btn-outline btn-sm";
+          csvBtn.textContent = "Download CSV";
+          csvBtn.onclick = e => {
+            e.stopPropagation();
+            downloadCSVForTest(t.id);
+          };
+          actions.appendChild(csvBtn);
+
+          side.appendChild(stats);
+          side.appendChild(actions);
+
+          card.appendChild(main);
+          card.appendChild(side);
+
+          card.onclick = () => {
+  openTestPreview(t.id);
+};
+
+
+          list.appendChild(card);
+        });
+    }
+
+    function downloadCSVForTest(testId) {
+      const test = state.data.tests.find(t => t.id === testId);
+      if (!test) {
+        alert("Test not found.");
+        return;
+      }
+      const submissions = test.submissions || [];
+      if (!submissions.length) {
+        alert("No submissions yet for this test.");
+        return;
+      }
+
+      const qIds = test.questions.map(q => q.id);
+      const headers = [
+        "StudentName",
+        "StudentID",
+        "SubmittedAt",
+        ...qIds.map(id => `${id}_Score`),
+        "TotalScore",
+        "MaxScore"
+      ];
+
+      const rows = [headers];
+
+      submissions.forEach(s => {
+        const row = [
+          s.studentName || "",
+          s.studentId || "",
+          s.submittedAt || ""
+        ];
+        const scoresByQ = {};
+        (s.responses || []).forEach(r => {
+          scoresByQ[r.questionId] = r.score;
+        });
+        qIds.forEach(id => {
+          row.push(scoresByQ[id] === undefined ? "" : String(scoresByQ[id]));
+        });
+        row.push(String(s.totalScore), String(s.maxScore));
+        rows.push(row);
+      });
+
+      const csv = rows
+        .map(r =>
+          r
+            .map(cell => {
+              const str = String(cell ?? "");
+              if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+                return '"' + str.replace(/"/g, '""') + '"';
+              }
+              return str;
+            })
+            .join(",")
+        )
+        .join("\n");
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const safeName = test.name.replace(/[^\w\-]+/g, "_");
+      a.download = `${test.date}_${test.subject}_${safeName}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+
+let previewTestId = null;
+
+function openTestPreview(testId) {
+  const test = state.data ? state.data.tests.find((t) => t.id === testId)
+                          : appState.tests.find((t) => t.id === testId);
+  if (!test) {
+    alert("Test not found in preview.");
+    return;
+  }
+  previewTestId = test.id;
+
+  // header
+  document.getElementById("previewTitle").textContent = test.name;
+  document.getElementById("previewMeta").textContent =
+    `${test.subject} • ${test.date} • ${test.questions.length} questions`;
+
+  // questions (student-style view, read-only)
+  const qContainer = document.getElementById("previewQuestionsContainer");
+  qContainer.innerHTML = "";
+  test.questions.forEach((q, index) => {
+    const card = document.createElement("div");
+    card.className = "question-card";
+
+    const header = document.createElement("div");
+    header.className = "question-header";
+
+    const label = document.createElement("div");
+    label.className = "question-label";
+    label.textContent = `Q${index + 1}`;
+
+    const right = document.createElement("div");
+    right.className = "flex gap-6 align-center";
+
+    const type = document.createElement("div");
+    type.className = "question-type";
+    type.textContent =
+      q.type === "mcq"
+        ? "MCQ"
+        : q.type === "short"
+        ? "Short answer"
+        : "Descriptive";
+
+    const score = document.createElement("div");
+    score.className = "score-chip";
+    score.textContent = `${q.maxScore} marks`;
+
+    right.appendChild(type);
+    right.appendChild(score);
+    header.appendChild(label);
+    header.appendChild(right);
+
+    const body = document.createElement("div");
+    body.className = "question-body";
+    body.textContent = q.prompt;
+
+    card.appendChild(header);
+    card.appendChild(body);
+
+    if (q.type === "mcq" && Array.isArray(q.options)) {
+      const list = document.createElement("ul");
+      list.className = "options-list";
+      q.options.forEach((opt, i) => {
+        const li = document.createElement("li");
+        const letter = String.fromCharCode(65 + i);
+        li.innerHTML = `<label><input type="radio" disabled /> ${letter}. ${opt}</label>`;
+        list.appendChild(li);
+      });
+      card.appendChild(list);
+
+      const meta = document.createElement("div");
+      meta.className = "hint-text";
+      meta.textContent = `Correct option: ${q.correctAnswer}`;
+      card.appendChild(meta);
+    } else if (q.type === "short" || q.type === "descriptive") {
+      const meta = document.createElement("div");
+      meta.className = "hint-text";
+      meta.textContent =
+        q.correctAnswer
+          ? `Expected / model answer: ${q.correctAnswer}`
+          : `Max score: ${q.maxScore}`;
+      card.appendChild(meta);
+    }
+
+    qContainer.appendChild(card);
+  });
+
+  // attempts / analytics summary
+  const attemptsBox = document.getElementById("previewAttemptsContainer");
+  const submissions = test.submissions || [];
+  if (!submissions.length) {
+    attemptsBox.className = "empty-state";
+    attemptsBox.textContent =
+      "No attempts yet for this test. Once students submit, you'll see scores here.";
+  } else {
+    attemptsBox.className = "muted-box";
+    let html = `<div class="mb-4"><strong>${submissions.length} attempt(s)</strong></div>`;
+    submissions.forEach((s) => {
+      const percent =
+        s.maxScore > 0
+          ? ((s.totalScore / s.maxScore) * 100).toFixed(1)
+          : "0.0";
+      html += `<div class="mt-2 text-xs">
+        <div><strong>${s.studentName}</strong> (${s.studentId}) — ${s.totalScore}/${s.maxScore} (${percent}%)</div>
+        <div class="text-muted">Submitted: ${s.submittedAt}</div>
+      </div>`;
+    });
+    attemptsBox.innerHTML = html;
+  }
+
+  document.getElementById("testPreviewOverlay").style.display = "flex";
+}
+
+function closeTestPreview() {
+  document.getElementById("testPreviewOverlay").style.display = "none";
+  previewTestId = null;
+}
+
+function deleteTestFromPreview() {
+  if (!previewTestId) {
+    alert("No test selected.");
+    return;
+  }
+
+  const test = state.data.tests.find(t => t.id === previewTestId);
+  if (!test) {
+    alert("Test not found.");
+    return;
+  }
+
+  const confirmDelete = confirm(
+    `Are you sure you want to delete the test:\n\n"${test.name}"?\n\nAll submissions for this test will also be deleted.`
+  );
+
+  if (!confirmDelete) return;
+
+  // Remove the test from the list
+  state.data.tests = state.data.tests.filter(t => t.id !== previewTestId);
+
+  // Save changes
+  saveState();
+
+  // Close modal
+  closeTestPreview();
+
+  // Refresh UI lists
+  refreshTeacherTestList();
+  refreshStudentTestList();
+
+  alert("Test deleted successfully.");
+}
+
+function editTestFromPreview() {
+  if (!previewTestId) {
+    alert("No test selected to edit.");
+    return;
+  }
+
+  const test = state.data.tests.find((t) => t.id === previewTestId);
+  if (!test) {
+    alert("Test not found.");
+    return;
+  }
+
+  // Fill basic fields
+  document.getElementById("testDateInput").value = test.date || "";
+  document.getElementById("testSubjectInput").value = test.subject || "";
+  document.getElementById("testNameInput").value = test.name || "";
+  document.getElementById("showAnswersToggle").checked = !!test.showAnswers;
+
+  // Load questions into the editor (deep copy so you can change them)
+  state.questionMode = "manual"; // allow full editing
+  state.currentGeneratedQuestions = JSON.parse(JSON.stringify(test.questions || []));
+
+  // Switch to teacher dashboard & manual mode UI
+  document.getElementById("qmodeAiTab").classList.remove("active");
+  document.getElementById("qmodeManualTab").classList.add("active");
+  document.getElementById("aiModeControls").style.display = "none";
+  document.getElementById("manualModeControls").style.display = "block";
+
+  // Re-render questions in the left panel
+  renderGeneratedQuestionsPreview();
+
+  // Show teacher dashboard
+  showSection("teacherDashboardSection");
+
+  // Close the preview modal
+  closeTestPreview();
+}
+
+
+
+    /* =====================================================
+       SECTION 9 — STUDENT: TEST LIST & TAKING
+       ===================================================== */
+
+    function refreshStudentTestList() {
+      const select = document.getElementById("studentTestSelect");
+      const badge = document.getElementById("availableTestsBadge");
+      const tests = state.data.tests.slice().sort((a, b) => a.date.localeCompare(b.date));
+
+      select.innerHTML = "";
+      const count = tests.length;
+      badge.textContent = count === 1 ? "1 test available" : `${count} tests available`;
+
+      if (!tests.length) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "No tests available yet.";
+        select.appendChild(opt);
+        select.disabled = true;
+        return;
+      }
+
+      select.disabled = false;
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Select a test…";
+      select.appendChild(placeholder);
+
+      tests.forEach(t => {
+        const opt = document.createElement("option");
+        opt.value = t.id;
+        opt.textContent = `${t.date} · ${t.subject} · ${t.name}`;
+        select.appendChild(opt);
+      });
+    }
+
+    function loadSelectedTestForStudent() {
+      const select = document.getElementById("studentTestSelect");
+      const id = select.value;
+      if (!id) {
+        alert("Please select a test first.");
+        return;
+      }
+
+      const test = state.data.tests.find(t => t.id === id);
+      if (!test) {
+        alert("Test not found.");
+        return;
+      }
+
+      state.activeStudentTestId = id;
+      document.getElementById("activeTestTitle").textContent = test.name;
+      document.getElementById("activeTestMeta").textContent =
+        `${test.subject} • ${test.date} • ${test.questions.length} questions`;
+      document.getElementById("submitTestBtn").disabled = false;
+      document.getElementById("studentResultContainer").innerHTML = "";
+      document.getElementById("attemptStatusPill").innerHTML =
+        '<span class="status-dot"></span> In progress';
+
+      renderTestQuestionsForStudent(test);
+    }
+
+    function renderTestQuestionsForStudent(test) {
+      const container = document.getElementById("testQuestionsContainer");
+      container.innerHTML = "";
+
+      if (!test.questions || !test.questions.length) {
+        container.innerHTML =
+          '<div class="empty-state">No questions defined for this test.</div>';
+        return;
+      }
+
+      test.questions.forEach((q, index) => {
+        const card = document.createElement("div");
+        card.className = "question-card";
+
+        const header = document.createElement("div");
+        header.className = "question-header";
+
+        const label = document.createElement("div");
+        label.className = "question-label";
+        label.textContent = `Q${index + 1}`;
+
+        const right = document.createElement("div");
+        right.className = "flex gap-6 align-center";
+
+        const type = document.createElement("div");
+        type.className = "question-type";
+        type.textContent =
+          q.type === "mcq"
+            ? "MCQ"
+            : q.type === "short"
+            ? "Short answer"
+            : "Descriptive";
+
+        const score = document.createElement("div");
+        score.className = "score-chip";
+        score.textContent = `${q.maxScore} marks`;
+
+        right.appendChild(type);
+        right.appendChild(score);
+
+        header.appendChild(label);
+        header.appendChild(right);
+        card.appendChild(header);
+
+        const body = document.createElement("div");
+        body.className = "question-body";
+        body.textContent = q.prompt;
+        card.appendChild(body);
+
+        if (q.type === "mcq" && Array.isArray(q.options)) {
+          const list = document.createElement("ul");
+          list.className = "options-list";
+          q.options.forEach((opt, i) => {
+            const li = document.createElement("li");
+            const letter = String.fromCharCode(65 + i);
+            li.innerHTML = `
+              <label>
+                <input type="radio" name="q_${q.id}" value="${letter}" />
+                ${letter}. ${opt}
+              </label>
+            `;
+            list.appendChild(li);
+          });
+          card.appendChild(list);
+        } else if (q.type === "short") {
+          const input = document.createElement("input");
+          input.type = "text";
+          input.placeholder = "Type your short answer…";
+          input.id = `q_${q.id}_input`;
+          card.appendChild(input);
+        } else {
+          const textarea = document.createElement("textarea");
+          textarea.placeholder =
+            "Type your descriptive answer. In production, ChatGPT will evaluate this.";
+          textarea.id = `q_${q.id}_input`;
+          card.appendChild(textarea);
+        }
+
+        container.appendChild(card);
+      });
+    }
+
+    function submitStudentTest() {
+      if (!state.activeStudentTestId) {
+        alert("No active test.");
+        return;
+      }
+      const test = state.data.tests.find(t => t.id === state.activeStudentTestId);
+      if (!test) {
+        alert("Test not found.");
+        return;
+      }
+      if (!state.currentStudent) {
+        alert("Student not logged in.");
+        return;
+      }
+
+      // Collect answers and score (mock AI for textual answers)
+      let totalScore = 0;
+      let maxScore = 0;
+      const responses = [];
+
+      test.questions.forEach(q => {
+        const qId = q.id;
+        let answer = "";
+        let score = 0;
+        let isCorrect = false;
+
+        if (q.type === "mcq") {
+          const selected = document.querySelector(`input[name="q_${qId}"]:checked`);
+          answer = selected ? selected.value : "";
+          isCorrect = !!answer && answer === q.correctAnswer;
+          score = isCorrect ? q.maxScore : 0;
+        } else if (q.type === "short") {
+          const inp = document.getElementById(`q_${qId}_input`);
+          answer = (inp && inp.value.trim()) || "";
+          const expected = (q.correctAnswer || "").toLowerCase();
+          if (answer && expected && expected !== "sample expected keywords from ai.") {
+            const overlap =
+              answer
+                .toLowerCase()
+                .split(/\s+/)
+                .filter(w => expected.includes(w)).length >= 1;
+            if (overlap) {
+              score = q.maxScore;
+              isCorrect = true;
+            } else {
+              score = Math.round(q.maxScore / 2);
+            }
+          } else {
+            score = answer ? Math.round(q.maxScore / 2) : 0;
+          }
+        } else {
+          const ta = document.getElementById(`q_${qId}_input`);
+          answer = (ta && ta.value.trim()) || "";
+          // Placeholder scoring: 70% if answered, 0 if blank
+          score = answer
+            ? Math.min(q.maxScore, Math.round(q.maxScore * 0.7))
+            : 0;
+        }
+
+        maxScore += q.maxScore;
+        totalScore += score;
+
+        responses.push({
+          questionId: qId,
+          type: q.type,
+          answer,
+          score,
+          isCorrect
+        });
+      });
+
+      const submittedAt = new Date().toISOString();
+      const submission = {
+        studentName: state.currentStudent.name,
+        studentId: state.currentStudent.id,
+        submittedAt,
+        totalScore,
+        maxScore,
+        responses
+      };
+
+      test.submissions = test.submissions || [];
+      test.submissions.push(submission);
+      saveState();
+
+      renderStudentResult(test, submission);
+      document.getElementById("attemptStatusPill").innerHTML =
+        '<span class="status-dot"></span> Submitted';
+      document.getElementById("submitTestBtn").disabled = true;
+
+      alert("Test submitted. Scroll to see your result summary.");
+    }
+
+    function renderStudentResult(test, submission) {
+      const container = document.getElementById("studentResultContainer");
+      container.innerHTML = "";
+
+      const banner = document.createElement("div");
+      banner.className = "result-banner";
+
+      const main = document.createElement("div");
+      main.className = "result-main";
+
+      const left = document.createElement("div");
+      const percent =
+        submission.maxScore > 0
+          ? ((submission.totalScore / submission.maxScore) * 100).toFixed(1)
+          : "0.0";
+      left.innerHTML = `
+        <div class="result-score">
+          Score: ${submission.totalScore} / ${submission.maxScore}
+        </div>
+        <div class="result-sub">
+          Approx. percentage: ${percent}%
+        </div>
+      `;
+
+      const right = document.createElement("div");
+      right.className = "flex gap-6 align-center";
+
+      const ratio = submission.maxScore > 0 ? submission.totalScore / submission.maxScore : 0;
+      const badgeCls = ratio >= 0.6 ? "badge-success" : "badge-danger";
+      const badgeText = ratio >= 0.6 ? "Passed" : "Review";
+
+      const status = document.createElement("div");
+      status.className = badgeCls;
+      status.innerHTML = `<span>●</span> ${badgeText}`;
+
+      const attempts = test.submissions ? test.submissions.length : 0;
+      const meta = document.createElement("div");
+      meta.className = "text-xs text-muted";
+      meta.textContent = `${attempts} total attempts recorded`;
+
+      right.appendChild(status);
+      right.appendChild(meta);
+
+      main.appendChild(left);
+      main.appendChild(right);
+      banner.appendChild(main);
+
+      const showAnswers = test.showAnswers;
+      const details = document.createElement("div");
+      details.className = "muted-box";
+
+      if (!showAnswers) {
+        details.innerHTML =
+          "Detailed answer keys are hidden for this test (teacher setting). In production, you can still show high-level feedback from ChatGPT.";
+      } else {
+        let html = `<div class="mb-4"><strong>Question-wise feedback</strong></div>`;
+        submission.responses.forEach((r, idx) => {
+          const q = test.questions.find(qq => qq.id === r.questionId);
+          if (!q) return;
+          html += `<div class="mt-4 text-xs">
+            <div><strong>Q${idx + 1}</strong> (${q.type === "mcq"
+              ? "MCQ"
+              : q.type === "short"
+              ? "Short"
+              : "Descriptive"}) — ${r.score}/${q.maxScore}</div>
+            <div class="text-muted">Your answer: ${
+              r.answer || "<i>no response</i>"
+            }</div>
+          `;
+          if (q.type === "mcq") {
+            html += `<div class="text-muted">Correct option: ${q.correctAnswer}</div>`;
+          } else if (q.correctAnswer) {
+            html += `<div class="text-muted">Expected / model answer: ${q.correctAnswer}</div>`;
+          }
+          html += `</div>`;
+        });
+        details.innerHTML = html;
+      }
+
+      banner.appendChild(details);
+      container.appendChild(banner);
+    }
+
+/* ============================================
+   SECTION 9b — UI SETTINGS (font & theme)
+   ============================================ */
+
+const UI_SETTINGS_KEY = "aiAssessmentStudio_uiSettings";
+
+function toggleSidePanel(open) {
+  const overlay = document.getElementById("sidePanelOverlay");
+  if (!overlay) return;
+  overlay.style.display = open ? "block" : "none";
+}
+
+function saveUiSettings(settings) {
+  localStorage.setItem(UI_SETTINGS_KEY, JSON.stringify(settings));
+}
+
+function loadUiSettings() {
+  try {
+    const raw = localStorage.getItem(UI_SETTINGS_KEY);
+    if (!raw) return { fontSize: "default", theme: "blue" };
+    const parsed = JSON.parse(raw);
+    return {
+      fontSize: parsed.fontSize || "default",
+      theme: parsed.theme || "blue",
+    };
+  } catch {
+    return { fontSize: "default", theme: "blue" };
+  }
+}
+
+function applyFontSize(size) {
+  // Remove old font classes
+  document.body.classList.remove("font-small", "font-default", "font-large");
+
+  // Add new one
+  const cls =
+    size === "small"
+      ? "font-small"
+      : size === "large"
+      ? "font-large"
+      : "font-default";
+  document.body.classList.add(cls);
+
+  // Highlight selected pill
+  document
+    .querySelectorAll('.option-pill[data-font-size]')
+    .forEach((btn) => {
+      btn.classList.toggle(
+        "active",
+        btn.getAttribute("data-font-size") === size
+      );
+    });
+}
+
+
+function applyTheme(theme) {
+  const root = document.documentElement;
+
+  // Remove old theme classes
+  document.body.classList.remove("theme-blue", "theme-white", "theme-pink", "light-theme");
+
+  // Decide which theme class & text colors to use
+  let themeClass = "theme-blue";
+  let isLight = false;
+
+  if (theme === "white") {
+    themeClass = "theme-white";
+    isLight = true;
+    root.style.setProperty("--text", "#111827");
+    root.style.setProperty("--muted", "#4b5563");
+  } else if (theme === "pink") {
+  themeClass = "theme-pink";
+  isLight = true;
+  root.style.setProperty("--text", "#111827");   // <– was "#111827"
+  root.style.setProperty("--muted", "#4b5563");
+}
+ else {
+    // blue default
+    themeClass = "theme-blue";
+    root.style.setProperty("--text", "#e5e7eb");
+    root.style.setProperty("--muted", "#9ca3aF");
+  }
+
+  // Apply theme + light-mode helpers
+  document.body.classList.add(themeClass);
+  if (isLight) {
+    document.body.classList.add("light-theme");
+  }
+
+  // Highlight the selected swatch
+  document.querySelectorAll(".theme-swatch").forEach((swatch) => {
+    const swatchTheme = swatch.getAttribute("data-theme");
+    swatch.classList.toggle("active", swatchTheme === theme);
+  });
+}
+
+
+
+
+function changeFontSize(size) {
+  const current = loadUiSettings();
+  const next = { ...current, fontSize: size };
+  applyFontSize(size);
+  saveUiSettings(next);
+}
+
+function changeTheme(theme) {
+  const current = loadUiSettings();
+  const next = { ...current, theme };
+  applyTheme(theme);
+  saveUiSettings(next);
+}
+
+    /* ============================================
+       SECTION 10 — INIT
+       ============================================ */
+   loadState();
+refreshTeacherTestList();
+refreshStudentTestList();
+
+// Apply saved UI settings (font size + theme)
+const initialUi = loadUiSettings();
+applyFontSize(initialUi.fontSize);
+applyTheme(initialUi.theme);
+
+  </script>
+<!-- Teacher test preview modal -->
+<!-- Teacher test preview modal -->
+<div id="testPreviewOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal-backdrop" onclick="closeTestPreview()"></div>
+  <div class="modal-card">
+    <div class="modal-header">
+      <div>
+        <div class="panel-title" id="previewTitle">Preview</div>
+        <div class="panel-sub" id="previewMeta">Test details</div>
+      </div>
+      <div class="flex gap-6 align-center">
+  <button class="btn-outline btn-sm" onclick="editTestFromPreview()">Edit this test</button>
+
+  <button class="btn-danger btn-sm" onclick="deleteTestFromPreview()">
+    Delete
+  </button>
+
+  <button class="btn-ghost btn-sm" onclick="closeTestPreview()">✕</button>
+</div>
+
+    </div>
+    <div class="modal-body">
+      <div id="previewQuestionsContainer" class="scroll-sm"></div>
+      <div class="divider"></div>
+      <div class="mt-4">
+        <div class="panel-sub">Attempt summary</div>
+        <div id="previewAttemptsContainer" class="empty-state">
+          No attempts yet for this test.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Right side Settings & Contact panel -->
+<div id="sidePanelOverlay" class="sidepanel-overlay">
+  <div class="sidepanel-backdrop" onclick="toggleSidePanel(false)"></div>
+  <aside class="sidepanel">
+    <div class="sidepanel-header">
+      <div>
+        <div class="sidepanel-title">Menu & Settings</div>
+        <div class="sidepanel-sub">Personalise your workspace</div>
+      </div>
+      <button class="btn-ghost btn-sm" type="button" onclick="toggleSidePanel(false)">
+        ✕
+      </button>
+    </div>
+
+    <div class="sidepanel-section">
+      <h4>Font size</h4>
+      <div class="sidepanel-control">
+        <div class="sidepanel-options">
+          <button
+            type="button"
+            class="option-pill"
+            data-font-size="small"
+            onclick="changeFontSize('small')"
+          >
+            Small
+          </button>
+          <button
+            type="button"
+            class="option-pill"
+            data-font-size="default"
+            onclick="changeFontSize('default')"
+          >
+            Default
+          </button>
+          <button
+            type="button"
+            class="option-pill"
+            data-font-size="large"
+            onclick="changeFontSize('large')"
+          >
+            Large
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidepanel-section">
+      <h4>Background theme</h4>
+      <div class="sidepanel-control">
+        <div class="sidepanel-options">
+  <div
+    class="theme-swatch theme-blue"
+    data-theme="blue"
+    onclick="changeTheme('blue')"
+  ></div>
+  <div
+    class="theme-swatch theme-white"
+    data-theme="white"
+    onclick="changeTheme('white')"
+  ></div>
+  <div
+    class="theme-swatch theme-pink"
+    data-theme="pink"
+    onclick="changeTheme('pink')"
+  ></div>
+</div>
+
+
+        <div class="helper-text mt-4">
+          Choose a different ambient glow for the background.
+        </div>
+      </div>
+    </div>
+
+    <div class="sidepanel-section">
+      <h4>Contact us</h4>
+      <div class="sidepanel-control">
+        <div class="helper-text">
+          Department of Technology & Research<br />
+          Indus International Schools<br />
+          📧 <a href="mailto:technology.research@indusschool.com" style="color:#bfdbfe;">technology.research@indusschool.com</a>
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
