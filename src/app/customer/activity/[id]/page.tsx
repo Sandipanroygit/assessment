@@ -124,6 +124,9 @@ const getErrorMessage = (err: unknown) => {
   }
 };
 
+const sanitizeSegment = (value: string) =>
+  value.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase() || "item";
+
 const buildReportHtml = ({
   logoSrc,
   activityTitle,
@@ -397,55 +400,51 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
   const generateQuiz = async () => {
     if (!module) return;
     setGeneratingQuiz(true);
-    setQuizStatus("Generating MCQs...");
-    const prompt = [
-      "You are creating a short MCQ quiz for a student who just viewed this drone activity.",
-      `Title: ${quizContext.title}`,
-      `Grade: ${module.grade}`,
-      `Subject: ${quizContext.subject}`,
-      `Description: ${quizContext.description}`,
-      quizContext.code ? `Code (trimmed):\n${quizContext.code}` : "No code snippet available.",
-      "",
-      "Create 5 multiple-choice questions (A-D) that test understanding of the activity. Keep them concise and specific to this activity.",
-      "Return in this markdown format:",
-      "Q1. <question>",
-      "A) ...",
-      "B) ...",
-      "C) ...",
-      "D) ...",
-      "Answer: <letter>",
-      "Explanation: <short explanation>",
-      "",
-      "Repeat for Q2-Q5. Do not add explanations.",
-    ].join("\n");
-
+    setQuizStatus("Loading questions from this activity...");
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: prompt }),
+      const gradeSegment = sanitizeSegment(module.grade);
+      const moduleSegment = sanitizeSegment(module.module || module.title);
+      const prefix = `question-banks/${gradeSegment}/${moduleSegment}`;
+      const bucket = supabase.storage.from("curriculum-assets");
+      const { data: listed, error } = await bucket.list(prefix, {
+        limit: 100,
+        offset: 0,
+        sortBy: { column: "name", order: "desc" },
       });
-      const data = await res.json();
-      if (!res.ok) {
-        const detail = data?.error || data?.reply || "Assistant unavailable.";
-        setQuizStatus(detail);
+      if (error || !listed?.length) {
+        setQuizStatus("Questions unavailable right now.");
         setGeneratingQuiz(false);
         return;
       }
-      const reply = data?.reply ?? "No quiz generated.";
-      const parsed = parseQuiz(reply);
+      const file = listed.find((item) => item.name.toLowerCase().endsWith(".json"));
+      if (!file) {
+        setQuizStatus("Questions unavailable right now.");
+        setGeneratingQuiz(false);
+        return;
+      }
+      const path = `${prefix}/${file.name}`;
+      const { data: urlData } = bucket.getPublicUrl(path);
+      const res = await fetch(urlData.publicUrl);
+      if (!res.ok) {
+        setQuizStatus("Questions unavailable right now.");
+        setGeneratingQuiz(false);
+        return;
+      }
+      const payload = await res.text();
+      const parsed = parseQuestionBankPayload(payload);
       if (parsed.length > 0) {
         setQuizQuestions(parsed);
         setCurrentQuestion(0);
         setSelections({});
         setQuizComplete(false);
         setTimeLeft(300);
+        setQuizStatus(null);
       } else {
-        setQuizStatus("Unable to parse quiz. Please retry.");
+        setQuizStatus("Questions unavailable right now.");
       }
-      setQuizStatus(null);
-    } catch {
-      setQuizStatus("Unable to generate quiz right now.");
+    } catch (err) {
+      console.error("Question bank load failed", err);
+      setQuizStatus("Questions unavailable right now.");
     } finally {
       setGeneratingQuiz(false);
     }
@@ -483,6 +482,68 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
       }
     });
     return questions.slice(0, 5);
+  };
+
+  const parseQuestionBankPayload = (raw: string) => {
+    const safeOptions = (options: unknown): Array<{ label: string; text: string }> => {
+      if (Array.isArray(options)) {
+        return options
+          .slice(0, 4)
+          .map((opt, idx) => {
+            if (typeof opt === "string") return { label: "ABCD".charAt(idx), text: opt };
+            if (opt && typeof opt === "object" && "text" in opt) {
+              const label = typeof (opt as { label?: string }).label === "string" ? (opt as { label: string }).label : "ABCD".charAt(idx);
+              const text = String((opt as { text?: unknown }).text ?? "");
+              return { label: label.toUpperCase(), text };
+            }
+            return null;
+          })
+          .filter(Boolean) as Array<{ label: string; text: string }>;
+      }
+      return [];
+    };
+
+    const normalizeArray = (items: unknown[]): Array<{ question: string; options: Array<{ label: string; text: string }>; answer: string; explanation?: string }> => {
+      return items
+        .map((item, idx) => {
+          if (!item || typeof item !== "object") return null;
+          const q = (item as { q?: string; question?: string }).question || (item as { q?: string }).q || "";
+          const opts = safeOptions((item as { options?: unknown }).options);
+          const ans = ((item as { answer?: string }).answer || "").trim().toUpperCase();
+          const explanation =
+            typeof (item as { explanation?: string }).explanation === "string"
+              ? (item as { explanation?: string }).explanation
+              : undefined;
+          if (!q || opts.length !== 4 || !ans) return null;
+          return { question: q, options: opts, answer: ans.charAt(0), explanation };
+        })
+        .filter(Boolean) as Array<{ question: string; options: Array<{ label: string; text: string }>; answer: string; explanation?: string }>;
+    };
+
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return normalizeArray(parsed).slice(0, 5);
+      }
+      if (parsed && typeof parsed === "object") {
+        const questionsField = (parsed as { questions?: unknown }).questions;
+        if (typeof questionsField === "string") {
+          try {
+            const nested = JSON.parse(questionsField);
+            if (Array.isArray(nested)) return normalizeArray(nested).slice(0, 5);
+          } catch {
+            // fall through to parse as text
+            const viaText = parseQuiz(questionsField);
+            if (viaText.length) return viaText;
+          }
+        }
+        if (Array.isArray(questionsField)) return normalizeArray(questionsField).slice(0, 5);
+      }
+    } catch {
+      // not JSON, try text parsing
+    }
+    const fallback = parseQuiz(raw);
+    return fallback;
   };
 
   useEffect(() => {
