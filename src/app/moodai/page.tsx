@@ -598,18 +598,18 @@ function MoodAIPageContent() {
                   M
                 </div>
                 <div className="rounded-[18px] px-4 py-3 border border-white/10 shadow-md bg-gradient-to-r from-white/20 via-white/10 to-white/5">
-                  <div className="flex items-center gap-2 text-slate-200">
-                    <span className="text-[11px] uppercase tracking-[0.08em] font-semibold text-slate-300">Typing</span>
-                    <div className="flex items-center gap-1">
-                      {[0, 1, 2].map((dot) => (
-                        <span
-                          key={dot}
-                          className="h-2 w-2 rounded-full bg-white/80 animate-bounce"
-                          style={{ animationDelay: `${dot * 0.18}s` }}
-                        />
-                      ))}
+                    <div className="flex items-center gap-2 text-slate-200">
+                      <span className="text-[11px] uppercase tracking-[0.08em] font-semibold text-slate-300">Typing</span>
+                      <div className="flex items-center gap-1">
+                        {[0, 1, 2].map((dot) => (
+                          <span
+                            key={dot}
+                            className="h-2 w-2 rounded-full bg-accent animate-bounce shadow-glow"
+                            style={{ animationDelay: `${dot * 0.18}s` }}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </div>
                 </div>
               </div>
             )}
