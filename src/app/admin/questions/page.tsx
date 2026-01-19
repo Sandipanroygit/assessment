@@ -270,8 +270,8 @@ export default function AdminQuestionsPage() {
                   </td>
                 </tr>
               ) : (
-                questionFiles.map((file) => (
-                  <tr key={file.path} className="border-b border-white/5">
+                questionFiles.map((file, idx) => (
+                  <tr key={`${file.path}-${idx}`} className="border-b border-white/5">
                     <td className="py-2 pr-3 font-semibold text-white">{file.moduleTitle ?? "-"}</td>
                     <td className="py-2 pr-3 text-slate-300">{file.grade ?? "-"}</td>
                     <td className="py-2 pr-3 text-slate-300">{file.fileName}</td>
