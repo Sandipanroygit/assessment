@@ -55,7 +55,7 @@ const parseQuiz = (text: string): QuizQuestion[] => {
       questions.push({ question, options: opts, answer, explanation: explanation || undefined });
     }
   });
-  return questions.slice(0, 15);
+  return questions.slice(0, 5);
 };
 
 export default function AssessmentPage() {
@@ -168,7 +168,7 @@ export default function AssessmentPage() {
       `Description: ${quizContext.description}`,
       quizContext.code ? `Code (trimmed):\n${quizContext.code}` : "No code snippet available.",
       "",
-      "Create 15 multiple-choice questions (A-D) that test understanding of the activity. Keep them concise and specific to this activity.",
+      "Create 5 multiple-choice questions (A-D) that test understanding of the activity. Keep them concise and specific to this activity.",
       "Return in this markdown format:",
       "Q1. <question>",
       "A) ...",
@@ -178,7 +178,7 @@ export default function AssessmentPage() {
       "Answer: <letter>",
       "Explanation: <short explanation>",
       "",
-      "Repeat for Q2-Q15. Do not add explanations.",
+      "Repeat for Q2-Q5. Do not add explanations.",
     ].join("\n");
 
     try {
@@ -244,7 +244,7 @@ export default function AssessmentPage() {
             <p className="text-xs uppercase tracking-[0.2em] text-accent-strong">MCQ generator</p>
             <h3 className="text-lg font-semibold text-white">Ask AI for practice questions</h3>
             <p className="text-sm text-slate-400">
-              Uses activity title, subject, grade, description, and a trimmed code snippet to build 15 MCQs.
+              Uses activity title, subject, grade, description, and a trimmed code snippet to build 5 MCQs.
             </p>
           </div>
           <button
