@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { fetchCurriculumModuleById } from "@/lib/supabaseData";
 import type { CurriculumModule } from "@/types";
@@ -58,7 +58,7 @@ const parseQuiz = (text: string): QuizQuestion[] => {
   return questions.slice(0, 5);
 };
 
-export default function AssessmentPage() {
+function AssessmentPageContent() {
   const searchParams = useSearchParams();
   const moduleId = searchParams.get("module");
   const [module, setModule] = useState<CurriculumModule | null>(null);
@@ -304,5 +304,13 @@ export default function AssessmentPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function AssessmentPage() {
+  return (
+    <Suspense fallback={<div className="section-padding text-slate-200">Loading assessment...</div>}>
+      <AssessmentPageContent />
+    </Suspense>
   );
 }

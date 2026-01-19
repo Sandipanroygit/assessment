@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { fetchCurriculumModuleById } from "@/lib/supabaseData";
 import type { CurriculumModule } from "@/types";
@@ -23,7 +23,7 @@ const decodeDataUrl = (url?: string) => {
   }
 };
 
-export default function MoodAIPage() {
+function MoodAIPageContent() {
   const searchParams = useSearchParams();
   const moduleId = searchParams.get("module");
   const [module, setModule] = useState<CurriculumModule | null>(null);
@@ -266,5 +266,13 @@ export default function MoodAIPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function MoodAIPage() {
+  return (
+    <Suspense fallback={<div className="section-padding text-slate-200">Loading chat...</div>}>
+      <MoodAIPageContent />
+    </Suspense>
   );
 }
