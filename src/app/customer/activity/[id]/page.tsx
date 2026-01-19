@@ -1245,7 +1245,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-accent-strong">MoodAI</p>
-              <h3 className="text-lg font-semibold text-white">Open MoodAI in a new page</h3>
+              <h3 className="text-lg font-semibold text-white">Talk Freely with MoodAI</h3>
               <p className="text-sm text-slate-400">
                 Continue the conversation about this activity on the dedicated MoodAI page.
               </p>
