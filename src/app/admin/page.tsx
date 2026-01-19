@@ -290,6 +290,12 @@ export default function AdminPage() {
           <h2 className="text-lg font-semibold text-white">Drone Activities</h2>
           <div className="flex gap-2">
             <Link
+              href="/admin/questions"
+              className="text-sm px-3 py-2 rounded-lg font-semibold border border-accent/40 text-accent-strong hover:border-accent hover:text-true-white transition"
+            >
+              Manage questions
+            </Link>
+            <Link
               href="/admin/upload"
               className={`text-sm px-3 py-2 rounded-lg font-semibold shadow-glow ${
                 isAdmin ? "bg-accent text-true-white" : "bg-white/5 text-slate-400 pointer-events-none"
