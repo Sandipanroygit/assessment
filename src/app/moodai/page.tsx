@@ -12,6 +12,49 @@ type Message = {
   content: string;
 };
 
+const createTonePlayer = () => {
+  const AudioContextCtor = typeof window !== "undefined" ? (window.AudioContext || (window as any).webkitAudioContext) : null;
+  let ctx: AudioContext | null = null;
+
+  const getContext = async () => {
+    if (!AudioContextCtor) return null;
+    if (!ctx) ctx = new AudioContextCtor();
+    if (ctx.state === "suspended") {
+      try {
+        await ctx.resume();
+      } catch {
+        // ignore autoplay blocks
+      }
+    }
+    return ctx;
+  };
+
+  const playTone = async (frequency: number, durationMs = 140) => {
+    const audioCtx = await getContext();
+    if (!audioCtx) return;
+    const oscillator = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = frequency;
+    gain.gain.value = 0.12;
+    oscillator.connect(gain);
+    gain.connect(audioCtx.destination);
+    const now = audioCtx.currentTime;
+    oscillator.start(now);
+    oscillator.stop(now + durationMs / 1000);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + durationMs / 1000);
+  };
+
+  const close = () => {
+    if (ctx && ctx.state !== "closed") {
+      void ctx.close();
+    }
+    ctx = null;
+  };
+
+  return { playTone, close };
+};
+
 type SentimentQuestion = {
   id: string;
   prompt: string;
@@ -104,6 +147,7 @@ const buildSentimentQuestions = (module?: CurriculumModule | null) => {
   return questions.slice(0, 10);
 };
 
+const TYPING_DELAY_MS = 2000;
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 const likertFromResponse = (response: string) => {
@@ -226,6 +270,8 @@ function MoodAIPageContent() {
   const [sending, setSending] = useState(false);
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingTimerRef = useRef<number | null>(null);
+  const tonePlayerRef = useRef(createTonePlayer());
   const totalQuestions = sentimentQuestions.length;
   const currentQuestionNumber =
     totalQuestions === 0 ? 0 : Math.min(questionFlowActive ? currentQuestionIdx + 1 : currentQuestionIdx, totalQuestions);
@@ -353,12 +399,27 @@ function MoodAIPageContent() {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(
+    () => () => {
+      if (typingTimerRef.current) {
+        window.clearTimeout(typingTimerRef.current);
+      }
+      tonePlayerRef.current.close();
+    },
+    [],
+  );
+
   const appendAssistantMessage = (text: string) => {
     setSending(true);
-    window.setTimeout(() => {
+    if (typingTimerRef.current) {
+      window.clearTimeout(typingTimerRef.current);
+    }
+    typingTimerRef.current = window.setTimeout(() => {
       setMessages((prev) => [...prev, { role: "assistant", content: text }]);
       setSending(false);
-    }, 350);
+      void tonePlayerRef.current.playTone(520, 120);
+      typingTimerRef.current = null;
+    }, TYPING_DELAY_MS);
   };
 
   const saveAnalysisToStorage = async (analysis: ReturnType<typeof buildSentimentAnalysis>) => {
@@ -404,6 +465,7 @@ function MoodAIPageContent() {
     const value = (provided ?? input).trim();
     if (!value || sending) return;
     setMessages((prev) => [...prev, { role: "user", content: value }]);
+    void tonePlayerRef.current.playTone(760, 120);
     setInput("");
 
     if (questionFlowActive && sentimentQuestions.length > 0) {
@@ -532,11 +594,22 @@ function MoodAIPageContent() {
             })}
             {sending && (
               <div className="flex items-end gap-2 justify-start">
-                <div className="h-8 w-8 rounded-full bg-accent text-true-white grid place-items-center text-xs font-semibold shadow-glow">
+                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-accent to-accent-strong text-true-white grid place-items-center text-xs font-semibold shadow-glow">
                   M
                 </div>
-                <div className="bg-white/5 text-slate-400 rounded-[18px] px-4 py-2 text-sm border border-white/10 shadow-md">
-                  Typing...
+                <div className="rounded-[18px] px-4 py-3 border border-white/10 shadow-md bg-gradient-to-r from-white/20 via-white/10 to-white/5">
+                  <div className="flex items-center gap-2 text-slate-200">
+                    <span className="text-[11px] uppercase tracking-[0.08em] font-semibold text-slate-300">Typing</span>
+                    <div className="flex items-center gap-1">
+                      {[0, 1, 2].map((dot) => (
+                        <span
+                          key={dot}
+                          className="h-2 w-2 rounded-full bg-white/80 animate-bounce"
+                          style={{ animationDelay: `${dot * 0.18}s` }}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
