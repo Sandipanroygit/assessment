@@ -16,64 +16,207 @@ const extractPromptValue = (message: string, label: string) => {
   return match ? match[1].trim() : "";
 };
 
-const buildQuizFallback = (message: string) => {
-  const title = extractPromptValue(message, "Title") || "this activity";
-  const subject = extractPromptValue(message, "Subject") || "drone systems";
-  const grade = extractPromptValue(message, "Grade") || "9-12";
-  const description = extractPromptValue(message, "Description") || "a guided drone learning module";
-  const hasCode = /code\s*\(trimmed\):/i.test(message);
+const parseContext = (contextText?: string) => {
+  if (!contextText) return {};
+  try {
+    const parsed = JSON.parse(contextText);
+    if (parsed && typeof parsed === "object") {
+      return {
+        title: typeof (parsed as { title?: unknown }).title === "string" ? (parsed as { title: string }).title : "",
+        subject:
+          typeof (parsed as { subject?: unknown }).subject === "string" ? (parsed as { subject: string }).subject : "",
+        grade: typeof (parsed as { grade?: unknown }).grade === "string" ? (parsed as { grade: string }).grade : "",
+        description:
+          typeof (parsed as { description?: unknown }).description === "string"
+            ? (parsed as { description: string }).description
+            : "",
+        code: typeof (parsed as { code?: unknown }).code === "string" ? (parsed as { code: string }).code : "",
+        sop: typeof (parsed as { sop?: unknown }).sop === "string" ? (parsed as { sop: string }).sop : "",
+      };
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return {};
+};
 
-  const questions = [
-    {
-      question: `What best describes the goal of "${title}"?`,
-      options: [
-        `Apply ${subject} concepts through ${description}`,
-        "Assemble a toy drone with no learning objectives",
-        "Focus only on drone racing techniques",
-        "Skip hands-on work and read theory only",
-      ],
-      answer: "A",
-    },
-    {
-      question: "Which subject area does this activity align with?",
-      options: [subject, "Sports training", "Culinary arts", "Music production"],
-      answer: "A",
-    },
-    {
-      question: `This activity is designed for which grade band?`,
-      options: [grade, "K-2", "College only", "All ages with no level"],
-      answer: "A",
-    },
-    {
-      question: hasCode
-        ? "Which skill is most directly practiced in this activity?"
-        : "Which learning approach is emphasized in this activity?",
-      options: hasCode
-        ? ["Python programming", "Oil painting", "Guitar performance", "Foreign language translation"]
-        : ["Hands-on experimentation", "Passive memorization only", "Random guessing", "No assessment"],
-      answer: "A",
-    },
-    {
-      question: "Why are drones used in this learning module?",
-      options: [
-        "To connect classroom theory with real-world applications",
-        "To replace all other subjects",
-        "To avoid problem-solving and analysis",
-        "To remove safety practices",
-      ],
-      answer: "A",
-    },
+const shorten = (value: string, limit = 140) => (value.length > limit ? `${value.slice(0, limit)}...` : value);
+
+const sample = <T,>(arr: T[]): T | null => (arr.length ? arr[Math.floor(Math.random() * arr.length)] : null);
+
+const shuffle = <T,>(arr: T[]): T[] => {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+};
+
+const splitSentences = (text: string) =>
+  text
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+const splitLines = (text: string) =>
+  text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+const buildOptions = (correct: string, distractors: string[]) => {
+  const letters = ["A", "B", "C", "D"];
+  const fillers = [
+    "Not stated in the provided materials.",
+    "Unrelated to the given SOP or code.",
+    "Not part of this activity.",
+    "Conflicts with the described steps.",
   ];
+  const pool: string[] = [];
+  const seen = new Set<string>();
+  [correct, ...distractors, ...fillers].forEach((item) => {
+    if (item && !seen.has(item)) {
+      seen.add(item);
+      pool.push(item);
+    }
+  });
+  while (pool.length < 4) pool.push(sample(fillers) || "Not provided.");
+  const picks = shuffle(pool).slice(0, 4);
+  if (!picks.includes(correct)) {
+    picks[0] = correct;
+  }
+  const shuffled = shuffle(picks);
+  const answerIdx = Math.max(shuffled.indexOf(correct), 0);
+  return {
+    options: shuffled.map((text, idx) => ({ label: letters[idx], text })),
+    answer: letters[answerIdx],
+  };
+};
+
+const buildQuizFallback = ({ message, contextText }: { message: string; contextText?: string }) => {
+  const parsedContext = parseContext(contextText);
+  const title = parsedContext.title || extractPromptValue(message, "Title") || "this activity";
+  const subject = parsedContext.subject || extractPromptValue(message, "Subject") || "drone systems";
+  const grade = parsedContext.grade || extractPromptValue(message, "Grade") || "students";
+  const description =
+    parsedContext.description || extractPromptValue(message, "Description") || "a guided drone learning module";
+  const sop = parsedContext.sop || "";
+  const code = parsedContext.code || "";
+
+  const descSentences = splitSentences(description);
+  const sopSentences = splitSentences(sop);
+  const codeLines = splitLines(code);
+  const conceptLine = sample([...descSentences, ...sopSentences]) || `${title} — applying ${subject}`;
+  const sopStep = sample(sopSentences) || "Follow the SOP steps as written for this activity.";
+  const codeLine = sample(codeLines.filter((l) => l.length < 160)) || sample(codeLines) || "Review the provided code.";
+  const outcomeLine =
+    sample(descSentences.slice(1)) || descSentences[0] || sample(sopSentences.slice(-2)) || "Achieve the stated result.";
+  const troubleshootCue = sample([...sopSentences, ...codeLines]) || "Re-check the SOP steps and code parameters.";
+
+  const q1Stem =
+    sample([
+      `What core concept is emphasized in "${title}" for ${grade}?`,
+      `Which learning outcome best matches this activity on ${subject}?`,
+      `What is the primary idea students practice in this activity?`,
+    ]) || `What concept drives this activity?`;
+  const q2Stem =
+    sample([
+      "According to the SOP, which step or check must be followed?",
+      "Which SOP action is required to stay on procedure?",
+      "Which SOP instruction applies to this activity?",
+    ]) || "Which SOP item applies here?";
+  const q3Stem =
+    sample([
+      `In the provided code, what does this line do?\n${codeLine}`,
+      `What is the purpose of this code snippet?\n${codeLine}`,
+      `How does this code line support the activity?\n${codeLine}`,
+    ]) || "What is the purpose of the provided code line?";
+  const q4Stem =
+    sample([
+      "If results drift from expected, what should be checked or adjusted first?",
+      "When the outcome is off, which source should you revisit?",
+      "How should you troubleshoot if the activity is not working?",
+    ]) || "How should you troubleshoot the activity?";
+  const q5Stem =
+    sample([
+      "Which outcome or measurement shows the concept was applied correctly?",
+      "What indicates success for this activity?",
+      "What result should you verify after running the activity?",
+    ]) || "What indicates successful execution?";
+
+  const q1 = {
+    stem: q1Stem,
+    ...buildOptions(conceptLine, [
+      "A topic unrelated to the provided materials.",
+      "A general drone trivia point.",
+      "An off-topic theory not covered here.",
+    ]),
+    explanation: description
+      ? `From description: ${shorten(description)}`
+      : sop
+        ? `From SOP: ${shorten(sop)}`
+        : "Based on the provided context.",
+  };
+
+  const q2 = {
+    stem: q2Stem,
+    ...buildOptions(sopStep, [
+      "Skipping safety checks entirely.",
+      "Using an unrelated hobby checklist.",
+      "Ignoring the procedure order.",
+    ]),
+    explanation: sop ? `From SOP snippet: ${shorten(sopStep)}` : "SOP guidance was not provided; follow official steps.",
+  };
+
+  const q3 = {
+    stem: q3Stem,
+    ...buildOptions(codeLine, [
+      "It performs an unrelated sensor calibration.",
+      "It switches to an unrelated flight mode.",
+      "It changes a setting not present in the snippet.",
+    ]),
+    explanation: code ? `From code snippet: ${shorten(codeLine)}` : "No code provided; use the supplied snippet when available.",
+  };
+
+  const q4 = {
+    stem: q4Stem,
+    ...buildOptions(
+      troubleshootCue,
+      [
+        "Adjust random parameters without review.",
+        "Ignore the SOP and rerun blindly.",
+        "Assume hardware is faulty without checks.",
+      ],
+    ),
+    explanation: sop || code
+      ? "Troubleshoot by re-checking the provided SOP steps and code parameters."
+      : "Use provided materials to verify steps and parameters.",
+  };
+
+  const q5 = {
+    stem: q5Stem,
+    ...buildOptions(outcomeLine, [
+      "No measurement is needed.",
+      "Any unrelated outcome counts as success.",
+      "Only speed of completion matters, not accuracy.",
+    ]),
+    explanation: description
+      ? `From description: ${shorten(outcomeLine)}`
+      : sop
+        ? `From SOP: ${shorten(outcomeLine)}`
+        : "Use the stated objective to verify success.",
+  };
+
+  const questions = shuffle([q1, q2, q3, q4, q5]);
 
   return questions
     .map((q, idx) => {
       const lines = [
-        `Q${idx + 1}. ${q.question}`,
-        `A) ${q.options[0]}`,
-        `B) ${q.options[1]}`,
-        `C) ${q.options[2]}`,
-        `D) ${q.options[3]}`,
+        `Q${idx + 1}. ${q.stem}`,
+        ...q.options.map((opt) => `${opt.label}) ${opt.text}`),
         `Answer: ${q.answer}`,
+        `Explanation: ${q.explanation}`,
       ];
       return lines.join("\n");
     })
@@ -106,13 +249,14 @@ const fallbackReply = (message: string) => {
 };
 
 export async function POST(req: Request) {
+  let contextText = "";
   try {
     const { message, context } = await req.json();
     if (!message || typeof message !== "string") {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
-    const contextText =
+    contextText =
       typeof context === "string"
         ? context.trim()
         : context && typeof context === "object"
@@ -122,7 +266,7 @@ export async function POST(req: Request) {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       if (isQuizPrompt(message)) {
-        return NextResponse.json({ reply: buildQuizFallback(message), fallback: true }, { status: 200 });
+        return NextResponse.json({ reply: buildQuizFallback({ message, contextText }), fallback: true }, { status: 200 });
       }
       const reply = contextText
         ? `${fallbackReply(message)}\n\nActivity context: ${contextText}`
@@ -176,7 +320,10 @@ export async function POST(req: Request) {
         // ignore
       }
       if (isQuizPrompt(message)) {
-        return NextResponse.json({ reply: buildQuizFallback(message), fallback: true, detail }, { status: 200 });
+        return NextResponse.json(
+          { reply: buildQuizFallback({ message, contextText }), fallback: true, detail },
+          { status: 200 }
+        );
       }
       return NextResponse.json(
         {
@@ -192,6 +339,6 @@ export async function POST(req: Request) {
     const reply = data?.choices?.[0]?.message?.content ?? "Assistant is available but no reply was generated.";
     return NextResponse.json({ reply });
   } catch {
-    return NextResponse.json({ reply: buildQuizFallback(""), fallback: true }, { status: 200 });
+    return NextResponse.json({ reply: buildQuizFallback({ message: "", contextText }), fallback: true }, { status: 200 });
   }
 }

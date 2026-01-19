@@ -58,16 +58,39 @@ const parseQuiz = (text: string): QuizQuestion[] => {
   return questions.slice(0, 5);
 };
 
+const cleanSnippet = (text: string | null | undefined) => {
+  if (!text) return "";
+  const trimmed = text.trim();
+  const placeholders = [
+    "No activity selected yet.",
+    "No code snippet available.",
+    "Unable to load code file.",
+    "Code file is empty.",
+    "Code file available.",
+    "Loading code...",
+    "No SOP available.",
+    "Unable to load SOP file",
+    "SOP file is empty",
+    "SOP file available.",
+    "SOP available:",
+  ];
+  const lowered = trimmed.toLowerCase();
+  if (placeholders.some((p) => lowered.startsWith(p.toLowerCase()))) return "";
+  return trimmed;
+};
+
 function AssessmentPageContent() {
   const searchParams = useSearchParams();
   const moduleId = searchParams.get("module");
   const [module, setModule] = useState<CurriculumModule | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [codeDisplay, setCodeDisplay] = useState("Loading code...");
+  const [sopDisplay, setSopDisplay] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [quizText, setQuizText] = useState<string | null>(null);
   const [quizStatus, setQuizStatus] = useState<string | null>(null);
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
+  const [loadedFromBank, setLoadedFromBank] = useState(false);
 
   const loadCode = useCallback(
     async (currentModule: CurriculumModule | null) => {
@@ -110,21 +133,63 @@ function AssessmentPageContent() {
     [],
   );
 
+  const loadSop = useCallback(
+    async (currentModule: CurriculumModule | null) => {
+      if (!currentModule) {
+        setSopDisplay(null);
+        return;
+      }
+      const sopAsset = currentModule.assets.find((a) => a.type === "doc");
+      if (!sopAsset) {
+        setSopDisplay(null);
+        return;
+      }
+      const decoded = decodeDataUrl(sopAsset.url);
+      if (decoded) {
+        setSopDisplay(decoded);
+        return;
+      }
+      const canFetch =
+        sopAsset.url.startsWith("http://") ||
+        sopAsset.url.startsWith("https://") ||
+        sopAsset.url.startsWith("data:") ||
+        sopAsset.url.startsWith("blob:");
+      if (canFetch) {
+        try {
+          const res = await fetch(sopAsset.url);
+          const txt = await res.text();
+          setSopDisplay(txt || `SOP file is empty (${sopAsset.label || "unnamed file"}).`);
+          return;
+        } catch {
+          setSopDisplay(`Unable to load SOP file${sopAsset.label ? `: ${sopAsset.label}` : ""}.`);
+          return;
+        }
+      }
+      setSopDisplay(sopAsset.label ? `SOP available: ${sopAsset.label}` : "SOP file available.");
+    },
+    [],
+  );
+
   const quizContext = useMemo(() => {
-    const codeSnippet = codeDisplay?.slice(0, 2400) ?? "";
+    const codeSnippet = cleanSnippet(codeDisplay)?.slice(0, 2400) ?? "";
+    const sopSnippet = cleanSnippet(sopDisplay)?.slice(0, 1800) ?? "";
     return {
       subject: module?.subject ?? "",
       title: module?.title ?? "",
-      description: module?.description ?? "",
+      description: module?.description?.slice(0, 1600) ?? "",
       code: codeSnippet,
+      sop: sopSnippet,
     };
-  }, [codeDisplay, module]);
+  }, [codeDisplay, module, sopDisplay]);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       if (!moduleId) {
         setStatus("Select an activity to generate an assessment.");
+        setLoadedFromBank(false);
+        setQuizQuestions([]);
+        setQuizText(null);
         return;
       }
       setStatus("Loading activity...");
@@ -133,10 +198,16 @@ function AssessmentPageContent() {
         if (cancelled) return;
         if (!row) {
           setStatus("Activity not found.");
+          setLoadedFromBank(false);
+          setQuizQuestions([]);
+          setQuizText(null);
           return;
         }
         setModule(row);
         setStatus(null);
+        setLoadedFromBank(false);
+        setQuizQuestions([]);
+        setQuizText(null);
       } catch {
         if (!cancelled) setStatus("Unable to load activity.");
       }
@@ -149,7 +220,44 @@ function AssessmentPageContent() {
 
   useEffect(() => {
     void loadCode(module);
-  }, [loadCode, module]);
+    void loadSop(module);
+  }, [loadCode, loadSop, module]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadBank = async () => {
+      if (loadedFromBank) return;
+      if (!module) {
+        setLoadedFromBank(false);
+        return;
+      }
+      try {
+        setQuizStatus("Loading curated MCQs...");
+        const res = await fetch(`/assessments/${module.id}.json`);
+        if (!res.ok) {
+          if (!cancelled) setLoadedFromBank(false);
+          return;
+        }
+        const data = (await res.json()) as { questions?: QuizQuestion[] };
+        const questions = Array.isArray(data?.questions) ? data.questions.slice(0, 100) : [];
+        if (questions.length && !cancelled) {
+          setQuizQuestions(questions);
+          setQuizText(null);
+          setQuizStatus("Loaded curated MCQs.");
+          setLoadedFromBank(true);
+          return;
+        }
+      } catch {
+        if (!cancelled) setLoadedFromBank(false);
+      } finally {
+        if (!cancelled && !quizQuestions.length) setQuizStatus(null);
+      }
+    };
+    void loadBank();
+    return () => {
+      cancelled = true;
+    };
+  }, [module, quizQuestions.length, loadedFromBank]);
 
   const generateQuiz = async () => {
     if (!module) {
@@ -161,31 +269,41 @@ function AssessmentPageContent() {
     setQuizQuestions([]);
     setQuizStatus("Generating MCQs...");
     const prompt = [
-      "You are creating a short MCQ quiz for a student who just viewed this drone activity.",
+      "You are creating 5 multiple-choice questions for a student who just viewed this drone activity.",
+      "First, infer the primary concept/skill/outcome being taught from the description, SOP, and code. Base every question on that concept and the specific details given.",
+      "Use only the provided sources (description, SOP snippet, code snippet); do not invent new facts.",
+      "Use concrete names (variables, parameters, steps, expected outputs) from the sources.",
+      "Vary wording each time you answer; do not reuse the same stems or patterns. Shuffle which option letter is correct across questions.",
       `Title: ${quizContext.title}`,
       `Grade: ${module.grade}`,
       `Subject: ${quizContext.subject}`,
-      `Description: ${quizContext.description}`,
-      quizContext.code ? `Code (trimmed):\n${quizContext.code}` : "No code snippet available.",
+      `Description: ${quizContext.description || "(not provided)"}`,
+      quizContext.sop ? `SOP snippet (trimmed):\n${quizContext.sop}` : "SOP not provided.",
+      quizContext.code ? `Code snippet (trimmed):\n${quizContext.code}` : "Code snippet not provided.",
       "",
-      "Create 5 multiple-choice questions (A-D) that test understanding of the activity. Keep them concise and specific to this activity.",
-      "Return in this markdown format:",
-      "Q1. <question>",
+      "Question roles (one each):",
+      "1) Activity objective or learning outcome (tie it to the inferred concept; cite description/SOP).",
+      "2) SOP procedure or safety check (cite SOP).",
+      "3) Code behavior or logic (cite the code snippet; reference the actual symbol/parameter).",
+      "4) Troubleshooting/fix for a likely issue based on the code or SOP step (cite source).",
+      "5) Expected result/measurement or parameter effect (cite description/SOP/code).",
+      "",
+      "Formatting (for each question):",
+      "Q<n>. <question>",
       "A) ...",
       "B) ...",
       "C) ...",
       "D) ...",
-      "Answer: <letter>",
-      "Explanation: <short explanation>",
-      "",
-      "Repeat for Q2-Q5. Do not add explanations.",
+      "Answer: <A-D>",
+      "Explanation: <one sentence citing the source, e.g., 'From SOP: ...' or 'From code: ...'>",
+      "Keep questions concise and specific to this activity. If a source is missing, state that in the explanation and avoid new facts.",
     ].join("\n");
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: prompt }),
+        body: JSON.stringify({ message: prompt, context: quizContext }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -244,8 +362,9 @@ function AssessmentPageContent() {
             <p className="text-xs uppercase tracking-[0.2em] text-accent-strong">MCQ generator</p>
             <h3 className="text-lg font-semibold text-white">Ask AI for practice questions</h3>
             <p className="text-sm text-slate-400">
-              Uses activity title, subject, grade, description, and a trimmed code snippet to build 5 MCQs.
+              Uses activity title, subject, grade, description, SOP snippet, and trimmed code to build 5 MCQs.
             </p>
+            {loadedFromBank && <p className="text-xs text-accent-strong mt-1">Curated 100-question bank loaded for this activity.</p>}
           </div>
           <button
             type="button"
@@ -295,6 +414,12 @@ function AssessmentPageContent() {
             {module?.grade ? `Grade ${module.grade}` : "Grade not available"}
           </p>
           <p className="text-slate-300">{quizContext.description || "No description provided."}</p>
+        </div>
+        <div className="rounded-xl border border-white/10 bg-black/30 p-3">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400 mb-2">SOP snippet (trimmed)</p>
+          <pre className="text-xs text-slate-100 whitespace-pre-wrap max-h-[240px] overflow-y-auto">
+            {quizContext.sop || "No SOP available."}
+          </pre>
         </div>
         <div className="rounded-xl border border-white/10 bg-black/30 p-3">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-400 mb-2">Code snippet (trimmed)</p>

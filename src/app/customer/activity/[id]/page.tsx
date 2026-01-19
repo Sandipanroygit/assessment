@@ -1247,7 +1247,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
               <p className="text-xs uppercase tracking-[0.2em] text-accent-strong">MoodAI</p>
               <h3 className="text-lg font-semibold text-white">Talk Freely with MoodAI</h3>
               <p className="text-sm text-slate-400">
-                Continue the conversation about this activity on the dedicated MoodAI page.
+                Continue the conversation about this activity with MoodAI
               </p>
             </div>
             <Link
@@ -1739,3 +1739,4 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     </main>
   );
 }
+
