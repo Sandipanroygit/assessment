@@ -329,16 +329,6 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
   const [status, setStatus] = useState<string | null>(null);
   const [codeDisplay, setCodeDisplay] = useState("Loading code...");
   const [userId, setUserId] = useState<string | null>(null);
-  const [quizText, setQuizText] = useState<string | null>(null);
-  const [quizStatus, setQuizStatus] = useState<string | null>(null);
-  const [generatingQuiz, setGeneratingQuiz] = useState(false);
-  const [quizQuestions, setQuizQuestions] = useState<
-    Array<{ question: string; options: Array<{ label: string; text: string }>; answer: string; explanation?: string }>
-  >([]);
-  const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [selections, setSelections] = useState<Record<number, string>>({});
-  const [quizComplete, setQuizComplete] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes in seconds
   const [logFile, setLogFile] = useState<File | null>(null);
   const [plotFile, setPlotFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
@@ -691,151 +681,6 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     }
   };
 
-  const quizContext = useMemo(() => {
-    const codeSnippet = codeDisplay?.slice(0, 2400) ?? "";
-    return {
-      subject: module?.subject ?? "",
-      title: module?.title ?? "",
-      description: module?.description ?? "",
-      code: codeSnippet,
-    };
-  }, [codeDisplay, module]);
-
-  const generateQuiz = async () => {
-    if (!module) return;
-    setGeneratingQuiz(true);
-    setQuizText(null);
-    setQuizStatus("Generating MCQs...");
-    const prompt = [
-      "You are creating a short MCQ quiz for a student who just viewed this drone activity.",
-      `Title: ${quizContext.title}`,
-      `Grade: ${module.grade}`,
-      `Subject: ${quizContext.subject}`,
-      `Description: ${quizContext.description}`,
-      quizContext.code ? `Code (trimmed):\n${quizContext.code}` : "No code snippet available.",
-      "",
-      "Create 5 multiple-choice questions (A-D) that test understanding of the activity. Keep them concise and specific to this activity.",
-      "Return in this markdown format:",
-      "Q1. <question>",
-      "A) ...",
-      "B) ...",
-      "C) ...",
-      "D) ...",
-      "Answer: <letter>",
-      "Explanation: <short explanation>",
-      "",
-      "Repeat for Q2-Q5. Do not add explanations.",
-    ].join("\n");
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: prompt }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        const detail = data?.error || data?.reply || "Assistant unavailable.";
-        setQuizStatus(detail);
-        setGeneratingQuiz(false);
-        return;
-      }
-      const reply = data?.reply ?? "No quiz generated.";
-      setQuizText(reply);
-      const parsed = parseQuiz(reply);
-      if (parsed.length > 0) {
-        setQuizQuestions(parsed);
-        setCurrentQuestion(0);
-        setSelections({});
-        setQuizComplete(false);
-        setTimeLeft(300);
-      } else {
-        setQuizStatus("Unable to parse quiz. Please retry.");
-      }
-      setQuizStatus(null);
-    } catch {
-      setQuizStatus("Unable to generate quiz right now.");
-    } finally {
-      setGeneratingQuiz(false);
-    }
-  };
-
-  const parseQuiz = (text: string) => {
-    const blocks = text.split(/Q\d+\./i).filter(Boolean);
-    const questions: Array<{
-      question: string;
-      options: Array<{ label: string; text: string }>;
-      answer: string;
-      explanation?: string;
-    }> = [];
-    const answerRegex = /Answer:\s*([A-D])/i;
-    blocks.forEach((block) => {
-      const lines = block.trim().split("\n").map((l) => l.trim()).filter(Boolean);
-      if (lines.length === 0) return;
-      const question = lines[0];
-      const opts = lines
-        .slice(1)
-        .filter((l) => /^[A-D][).]/i.test(l))
-        .map((l) => {
-          const label = l.slice(0, 1).toUpperCase();
-          const text = l.replace(/^[A-D][).]\s*/, "");
-          return { label, text };
-        })
-        .slice(0, 4);
-      const answerLine = lines.find((l) => answerRegex.test(l));
-      const answerMatch = answerLine ? answerLine.match(answerRegex) : null;
-      const answer = answerMatch ? answerMatch[1].toUpperCase() : "";
-      const explanationLine = lines.find((l) => /^Explanation:/i.test(l));
-      const explanation = explanationLine ? explanationLine.replace(/^Explanation:\s*/i, "").trim() : "";
-      if (question && opts.length === 4 && answer) {
-        questions.push({ question, options: opts, answer, explanation: explanation || undefined });
-      }
-    });
-    return questions.slice(0, 5);
-  };
-
-  useEffect(() => {
-    if (quizComplete || quizQuestions.length === 0) return;
-    setTimeLeft(300);
-    const id = window.setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(id);
-          setQuizComplete(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(id);
-  }, [quizQuestions.length, quizComplete]);
-
-  const answeredCount = useMemo(() => Object.keys(selections).length, [selections]);
-  const score = useMemo(() => {
-    if (!quizComplete) return null;
-    return quizQuestions.reduce((acc, q, idx) => (selections[idx] === q.answer ? acc + 1 : acc), 0);
-  }, [quizComplete, quizQuestions, selections]);
-
-  useEffect(() => {
-    if (!module || !quizComplete || score === null || quizQuestions.length === 0) return;
-    try {
-      const stored = localStorage.getItem(progressStorageKey);
-      const parsed = stored ? JSON.parse(stored) : {};
-      const previous = parsed[String(module.id)] ?? {};
-      parsed[String(module.id)] = {
-        ...previous,
-        completed: true,
-        score,
-        total: quizQuestions.length,
-        completedAt: new Date().toISOString(),
-      };
-      localStorage.setItem(progressStorageKey, JSON.stringify(parsed));
-      setMarkedDone(true);
-    } catch {
-      // ignore storage errors
-    }
-  }, [module, quizComplete, score, quizQuestions.length]);
-
   useEffect(() => {
     if (!module || submissions.length > 0) return;
     try {
@@ -986,7 +831,12 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
       setUploadStatus("Deleting submission...");
     try {
       if (!submission.id.startsWith("local-")) {
-        await supabase.from("activity_submissions").delete().eq("id", submissionId).eq("user_id", userId);
+        const { error } = await supabase
+          .from("activity_submissions")
+          .delete()
+          .eq("id", submissionId)
+          .eq("user_id", userId);
+        if (error) throw error;
         const byBucket = bucketPathsFromUrls([submission.logUrl, submission.plotUrl]);
         await Promise.all(
           Object.entries(byBucket).map(async ([bucket, paths]) => {
@@ -1152,12 +1002,14 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
           >
             Back to activities
           </Link>
-          <a
-            href="#assessment"
+          <Link
+            href={module ? `/assessment?module=${module.id}` : "/assessment"}
+            target="_blank"
+            rel="noopener noreferrer"
             className="px-3 py-2 rounded-xl bg-accent text-true-white text-sm font-semibold shadow-glow"
           >
-            Self Assessment
-          </a>
+            AI Assessment
+          </Link>
         </div>
       </div>
 
@@ -1238,15 +1090,33 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
                 ) : (
                   <div className="p-4 text-sm text-slate-300">No documents available.</div>
                 )}
-              </div>
             </div>
           </div>
+        </div>
 
-          <div className="glass-panel rounded-2xl p-4 border border-white/10 space-y-3">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-accent-strong">Submission</p>
-                <h3 className="text-lg font-semibold text-white">Upload log + plots</h3>
+        <div className="glass-panel rounded-2xl p-4 border border-white/10 space-y-3">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-accent-strong">MoodAI</p>
+              <h3 className="text-lg font-semibold text-white">Open MoodAI in a new page</h3>
+              <p className="text-sm text-slate-400">
+                Continue the conversation about this activity on the dedicated MoodAI page.
+              </p>
+            </div>
+            <Link
+              href={module ? `/moodai?module=${module.id}` : "/moodai"}
+              className="px-4 py-2 rounded-xl bg-accent text-true-white text-sm font-semibold shadow-glow inline-flex items-center justify-center"
+            >
+              Go to MoodAI
+            </Link>
+          </div>
+        </div>
+
+        <div className="glass-panel rounded-2xl p-4 border border-white/10 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-accent-strong">Submission</p>
+              <h3 className="text-lg font-semibold text-white">Upload log + plots</h3>
                 <p className="text-sm text-slate-400">Add your activity log file and plots, then mark this activity as done.</p>
               </div>
             </div>
@@ -1581,137 +1451,24 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
             )}
           </div>
 
-          <div id="assessment" className="glass-panel rounded-2xl p-4 border border-white/10 space-y-3">
-            <div className="flex items-start justify-between">
+          <div className="glass-panel rounded-2xl p-4 border border-white/10 space-y-3">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-accent-strong">AI Assessment</p>
-                <h3 className="text-lg font-semibold text-white">Generate practice MCQs</h3>
+                <h3 className="text-lg font-semibold text-white">Open AI Assessment in a new page</h3>
+                <p className="text-sm text-slate-400">
+                  Generate practice MCQs on the dedicated assessment page.
+                </p>
               </div>
-              <button
-                type="button"
-                className="px-3 py-1.5 rounded-lg bg-accent text-true-white text-sm font-semibold disabled:opacity-50"
-                onClick={generateQuiz}
-                disabled={generatingQuiz}
+              <Link
+                href={module ? `/assessment?module=${module.id}` : "/assessment"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 rounded-xl bg-accent text-true-white text-sm font-semibold shadow-glow inline-flex items-center justify-center"
               >
-                {generatingQuiz ? "Generating..." : "Generate quiz"}
-              </button>
+                Go to AI Assessment
+              </Link>
             </div>
-            {quizStatus && <div className="text-sm text-slate-300">{quizStatus}</div>}
-            {quizQuestions.length > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm text-slate-200">
-                  <div className="flex gap-2 flex-wrap">
-                    <span className="px-2 py-1 rounded-md bg-black/30 border border-white/10">Time left: {Math.floor(timeLeft / 60)}:{`${timeLeft % 60}`.padStart(2, "0")}</span>
-                    <span className="px-2 py-1 rounded-md bg-black/30 border border-white/10">Answered: {answeredCount}/{quizQuestions.length}</span>
-                  </div>
-                  {quizComplete && score !== null && (
-                    <span className="text-accent-strong font-semibold">Score: {score}/{quizQuestions.length}</span>
-                  )}
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  {quizQuestions.map((_, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      className={`w-10 h-10 rounded-full border text-sm font-semibold ${
-                        idx === currentQuestion ? "border-accent text-accent-strong bg-accent/10" : "border-white/15 text-white bg-white/5"
-                      }`}
-                      onClick={() => setCurrentQuestion(idx)}
-                    >
-                      {idx + 1}
-                    </button>
-                  ))}
-                </div>
-                {!quizComplete && (
-                  <div className="space-y-3">
-                    <p className="text-sm text-slate-200 font-semibold">Question {currentQuestion + 1} of {quizQuestions.length}</p>
-                    <div className="rounded-xl border border-accent/30 bg-white/5 p-4 space-y-3 shadow-glow">
-                      <p className="text-white text-base leading-relaxed font-semibold">{quizQuestions[currentQuestion].question}</p>
-                      <div className="space-y-2">
-                        {quizQuestions[currentQuestion].options.map((opt) => {
-                          const selected = selections[currentQuestion] === opt.label;
-                          return (
-                            <button
-                              key={opt.label}
-                              type="button"
-                              className={`w-full text-left px-3 py-2 rounded-lg border ${
-                                selected ? "border-accent bg-accent/20 text-white" : "border-white/15 bg-white/5 text-slate-100"
-                              }`}
-                              onClick={() => setSelections((prev) => ({ ...prev, [currentQuestion]: opt.label }))}
-                            >
-                              <span className="font-semibold mr-2">{opt.label})</span>
-                              {opt.text}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <div className="flex gap-2 justify-between">
-                        <button
-                          type="button"
-                          className="h-10 px-4 rounded-lg border border-white/15 bg-white/5 text-white font-semibold disabled:opacity-40"
-                          disabled={currentQuestion === 0}
-                          onClick={() => setCurrentQuestion((idx) => Math.max(0, idx - 1))}
-                        >
-                          Prev
-                        </button>
-                        <button
-                          type="button"
-                          className="h-10 px-4 rounded-lg border border-white/15 bg-white/5 text-white font-semibold disabled:opacity-40"
-                          disabled={currentQuestion === quizQuestions.length - 1}
-                          onClick={() => setCurrentQuestion((idx) => Math.min(quizQuestions.length - 1, idx + 1))}
-                        >
-                          Next
-                        </button>
-                        <button
-                          type="button"
-                          className="h-10 px-5 rounded-lg bg-accent text-true-white font-semibold shadow-glow disabled:opacity-40"
-                          onClick={() => setQuizComplete(true)}
-                          disabled={quizComplete}
-                        >
-                          Submit
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {quizComplete && score !== null && (
-                  <div className="rounded-xl border border-accent/30 bg-accent/10 p-3 text-white space-y-3">
-                    <p className="text-lg font-semibold">Assessment complete</p>
-                    <p className="text-sm">Score: {score}/{quizQuestions.length}</p>
-                    {quizQuestions[currentQuestion] && (() => {
-                      const q = quizQuestions[currentQuestion];
-                      const selected = selections[currentQuestion] ?? "";
-                      const selectedOption = q.options.find((opt) => opt.label === selected);
-                      const correctOption = q.options.find((opt) => opt.label === q.answer);
-                      const isCorrect = selected === q.answer;
-                      return (
-                        <div className="rounded-lg border border-white/10 bg-black/20 p-5 space-y-3">
-                          <p className="text-lg font-semibold text-white">
-                            Q{currentQuestion + 1}. {q.question}
-                          </p>
-                          <p
-                            className={`text-base font-semibold ${
-                              isCorrect
-                                ? "text-emerald-200"
-                                : "text-rose-400 bg-rose-500/15 border border-rose-400/30 px-2 py-1 rounded-md inline-block"
-                            }`}
-                          >
-                            Your answer: {selected ? `${selected}) ${selectedOption?.text ?? ""}` : "Not answered"}
-                          </p>
-                          <p className="text-base text-slate-100">
-                            Correct answer: {q.answer}) {correctOption?.text ?? ""}
-                          </p>
-                          {q.explanation && <p className="text-base text-slate-200">Explanation: {q.explanation}</p>}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
-              </div>
-            )}
-            {quizStatus && !quizQuestions.length && !generatingQuiz && (
-              <div className="text-sm text-slate-300">{quizStatus}</div>
-            )}
           </div>
         </section>
       )}

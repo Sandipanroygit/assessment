@@ -180,6 +180,8 @@ drop policy if exists "Students read own submissions" on public.activity_submiss
 drop policy if exists "Students insert own submissions" on public.activity_submissions;
 drop policy if exists "Students update own submissions" on public.activity_submissions;
 drop policy if exists "Admins read submissions" on public.activity_submissions;
+drop policy if exists "Students delete own submissions" on public.activity_submissions;
+drop policy if exists "Admins delete submissions" on public.activity_submissions;
 create policy "Students read own submissions" on public.activity_submissions
   for select using (auth.uid() = user_id);
 create policy "Students insert own submissions" on public.activity_submissions
@@ -188,6 +190,10 @@ create policy "Students update own submissions" on public.activity_submissions
   for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "Admins read submissions" on public.activity_submissions
   for select using (public.is_admin());
+create policy "Students delete own submissions" on public.activity_submissions
+  for delete using (auth.uid() = user_id);
+create policy "Admins delete submissions" on public.activity_submissions
+  for delete using (public.is_admin());
 
 -- Hint PostgREST to refresh its schema cache
 notify pgrst, 'reload schema';

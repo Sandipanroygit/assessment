@@ -107,17 +107,27 @@ const fallbackReply = (message: string) => {
 
 export async function POST(req: Request) {
   try {
-    const { message } = await req.json();
+    const { message, context } = await req.json();
     if (!message || typeof message !== "string") {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
+
+    const contextText =
+      typeof context === "string"
+        ? context.trim()
+        : context && typeof context === "object"
+          ? JSON.stringify(context)
+          : "";
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       if (isQuizPrompt(message)) {
         return NextResponse.json({ reply: buildQuizFallback(message), fallback: true }, { status: 200 });
       }
-      return NextResponse.json({ reply: fallbackReply(message), fallback: true }, { status: 200 });
+      const reply = contextText
+        ? `${fallbackReply(message)}\n\nActivity context: ${contextText}`
+        : fallbackReply(message);
+      return NextResponse.json({ reply, fallback: true }, { status: 200 });
     }
 
     const openAiRes = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -144,6 +154,14 @@ export async function POST(req: Request) {
               + "Platform usage: students log in, pick grade/subject/activity, and access curated materials to learn at their own pace using downloads. "
               + "Maintain a friendly, professional, educational tone. Avoid backend/system details.",
           },
+          ...(contextText
+            ? [
+                {
+                  role: "system",
+                  content: `Use this activity context for your reply:\n${contextText.slice(0, 2000)}`,
+                },
+              ]
+            : []),
           { role: "user", content: message },
         ],
       }),
