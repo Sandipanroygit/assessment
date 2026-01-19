@@ -1,4 +1,4 @@
-export type UserRole = "admin" | "customer";
+export type UserRole = "admin" | "teacher" | "student" | "customer";
 
 export interface CurriculumModule {
   id: string;

@@ -5,9 +5,16 @@ create extension if not exists "pgcrypto";
 create table if not exists public.profiles (
   id uuid primary key references auth.users on delete cascade,
   full_name text,
-  role text check (role in ('admin', 'customer')) default 'customer',
+  role text check (role in ('admin', 'teacher', 'student', 'customer')) default 'student',
+  grade text,
   created_at timestamp with time zone default now()
 );
+
+-- Bring existing tables in line with the newer profile shape
+alter table public.profiles add column if not exists grade text;
+alter table public.profiles drop constraint if exists profiles_role_check;
+alter table public.profiles add constraint profiles_role_check check (role in ('admin', 'teacher', 'student', 'customer'));
+alter table public.profiles alter column role set default 'student';
 
 create table if not exists public.curriculum_modules (
   id uuid primary key default gen_random_uuid(),
@@ -118,9 +125,9 @@ drop policy if exists "Admins manage profiles" on public.profiles;
 create policy "Profiles are self-readable" on public.profiles
   for select using (auth.uid() = id);
 create policy "Profiles are self-updatable" on public.profiles
-  for update using (auth.uid() = id) with check (auth.uid() = id and role = 'customer');
+  for update using (auth.uid() = id) with check (auth.uid() = id and role in ('teacher', 'student', 'customer'));
 create policy "Profiles are self-insertable" on public.profiles
-  for insert with check (auth.uid() = id and role = 'customer');
+  for insert with check (auth.uid() = id and role in ('teacher', 'student', 'customer'));
 create policy "Admins manage profiles" on public.profiles
   for all using (public.is_admin()) with check (public.is_admin());
 
