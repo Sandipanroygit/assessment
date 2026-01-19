@@ -403,27 +403,35 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     setQuizStatus("Loading questions from this activity...");
     try {
       const gradeSegment = sanitizeSegment(module.grade);
-      const moduleSegment = sanitizeSegment(module.module || module.title);
-      const prefix = `question-banks/${gradeSegment}/${moduleSegment}`;
+      const moduleSegments = Array.from(
+        new Set([sanitizeSegment(module.module || module.title), sanitizeSegment(module.title), sanitizeSegment(module.module || "")].filter(Boolean)),
+      );
       const bucket = supabase.storage.from("curriculum-assets");
-      const { data: listed, error } = await bucket.list(prefix, {
-        limit: 100,
-        offset: 0,
-        sortBy: { column: "name", order: "desc" },
-      });
-      if (error || !listed?.length) {
+      let filePath: string | null = null;
+
+      for (const moduleSegment of moduleSegments) {
+        const prefix = `question-banks/${gradeSegment}/${moduleSegment}`;
+        const { data: listed, error } = await bucket.list(prefix, {
+          limit: 100,
+          offset: 0,
+          sortBy: { column: "name", order: "desc" },
+        });
+        if (error || !listed?.length) continue;
+        const candidates = listed
+          .filter((item) => item.name.toLowerCase().endsWith(".json"))
+          .sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || "") || b.name.localeCompare(a.name));
+        if (candidates.length === 0) continue;
+        filePath = `${prefix}/${candidates[0].name}`;
+        break;
+      }
+
+      if (!filePath) {
         setQuizStatus("Questions unavailable right now.");
         setGeneratingQuiz(false);
         return;
       }
-      const file = listed.find((item) => item.name.toLowerCase().endsWith(".json"));
-      if (!file) {
-        setQuizStatus("Questions unavailable right now.");
-        setGeneratingQuiz(false);
-        return;
-      }
-      const path = `${prefix}/${file.name}`;
-      const { data: urlData } = bucket.getPublicUrl(path);
+
+      const { data: urlData } = bucket.getPublicUrl(filePath);
       const res = await fetch(urlData.publicUrl);
       if (!res.ok) {
         setQuizStatus("Questions unavailable right now.");
