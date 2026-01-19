@@ -1,10 +1,10 @@
-import { createClient } from "@supabase/supabase-js";
+﻿import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const email = process.env.NEXT_PUBLIC_DEFAULT_ADMIN_EMAIL || "sandipanroyyyyy@gmail.com";
 const password = process.env.DEFAULT_ADMIN_PASSWORD || "12345678";
-const fullName = process.env.NEXT_PUBLIC_DEFAULT_ADMIN_NAME || "Sandipan";
+const fullName = process.env.NEXT_PUBLIC_DEFAULT_ADMIN_NAME || "Admin";
 
 if (!supabaseUrl || !serviceRoleKey) {
   console.error("Missing Supabase env vars. Check .env.local.");
@@ -62,7 +62,9 @@ async function ensureAdmin() {
     process.exit(1);
   }
 
-  console.log("✅ Admin ready. You can now log in via /login");
+  console.log("âœ… Admin ready. You can now log in via /login");
 }
 
 ensureAdmin();
+
+

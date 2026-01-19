@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
@@ -59,7 +59,7 @@ export default function AdminPage() {
       { label: "Active modules", value: String(curriculumRows.length), delta: "Manage drone modules" },
       { label: "Products live", value: String(productRows.length), delta: "Ready in shop" },
       { label: "Orders this week", value: "0", delta: "No orders yet" },
-      { label: "Revenue (₹)", value: "₹0", delta: "Start selling to track" },
+      { label: "Revenue (â‚¹)", value: "â‚¹0", delta: "Start selling to track" },
     ],
     [curriculumRows.length, productRows.length],
   );
@@ -84,7 +84,7 @@ export default function AdminPage() {
         const setupHint = isMissingTableSchemaCacheError(error.message)
           ? "Supabase tables are not created yet. Apply `supabase/schema.sql` in your Supabase SQL editor, then retry."
           : null;
-        setAuthStatus(`Unable to verify admin access: ${error.message}${setupHint ? ` — ${setupHint}` : ""}`);
+        setAuthStatus(`Unable to verify admin access: ${error.message}${setupHint ? ` â€” ${setupHint}` : ""}`);
         setIsAdmin(false);
         setProfile({ full_name: user.user_metadata?.full_name ?? user.email ?? "User", role: undefined });
         return;
@@ -139,7 +139,7 @@ export default function AdminPage() {
         <div>
           <p className="text-accent-strong uppercase text-xs tracking-[0.2em]">Admin</p>
           <h1 className="text-3xl font-semibold text-white">
-            Hi {profile?.full_name ?? "Sandipan"}, here&apos;s your control room
+            Hi {profile?.full_name ?? "Admin"}, here&apos;s your control room
           </h1>
           <p className="text-slate-300 text-sm mt-2">
             Manage curriculum, products, orders, and promotions in one dashboard.
@@ -220,7 +220,7 @@ export default function AdminPage() {
               {curriculumRows.length === 0 ? (
                 <tr className="border-b border-white/5">
                   <td className="py-2 pr-3 text-slate-300" colSpan={5}>
-                    No curriculum uploaded yet. Click “Upload content” to add your first drone activity.
+                    No curriculum uploaded yet. Click â€œUpload contentâ€ to add your first drone activity.
                   </td>
                 </tr>
               ) : (
@@ -426,7 +426,7 @@ export default function AdminPage() {
               />
             </label>
             <label className="block text-sm text-slate-300 space-y-2">
-              Price (₹)
+              Price (â‚¹)
               <input
                 type="number"
                 value={editForm.price}
@@ -836,3 +836,4 @@ export default function AdminPage() {
     </main>
   );
 }
+

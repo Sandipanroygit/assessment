@@ -1,4 +1,4 @@
-"use client";
+ï»¿"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -11,7 +11,7 @@ const stats = [
   { label: "Active modules", value: "120", delta: "+8 this month" },
   { label: "Products live", value: "48", delta: "4 featured" },
   { label: "Orders this week", value: "86", delta: "12 pending" },
-  { label: "Revenue (Gé¦)", value: "7.2L", delta: "Gåæ 18% vs last month" },
+  { label: "Revenue (GÃ©Â¦)", value: "7.2L", delta: "GÃ¥Ã¦ 18% vs last month" },
 ];
 
 const curriculumActions = [
@@ -32,7 +32,7 @@ const orderActions = ["Track status", "View receipts", "Export reports"];
 const analytics = [
   { title: "Engagement", metric: "6.4k views", detail: "Avg 3.2 min per module" },
   { title: "Conversions", metric: "12.7%", detail: "CTA to checkout" },
-  { title: "Promo performance", metric: "Gé¦2.1L", detail: "Ad-driven revenue" },
+  { title: "Promo performance", metric: "GÃ©Â¦2.1L", detail: "Ad-driven revenue" },
 ];
 
 const formatPrice = (value: number) =>
@@ -53,7 +53,7 @@ export default function AdminPage() {
         .select("full_name, role")
         .eq("id", user.id)
         .maybeSingle();
-      const fallbackName = profileData?.full_name ?? user.user_metadata?.full_name ?? "Sandipan";
+      const fallbackName = profileData?.full_name ?? user.user_metadata?.full_name ?? "Admin";
       setProfile(profileData ? { ...profileData, full_name: fallbackName } : { full_name: fallbackName, role: "admin" });
     };
     loadProfile();
@@ -65,7 +65,7 @@ export default function AdminPage() {
         <div>
           <p className="text-accent-strong uppercase text-xs tracking-[0.2em]">Admin</p>
           <h1 className="text-3xl font-semibold text-white">
-            Hi {profile?.full_name ?? "Sandipan"}, here&apos;s your control room
+            Hi {profile?.full_name ?? "Admin"}, here&apos;s your control room
           </h1>
           <p className="text-slate-300 text-sm mt-2">
             Manage curriculum, products, orders, and promotions in one dashboard.
@@ -208,7 +208,7 @@ export default function AdminPage() {
             </button>
           </div>
           <p className="text-slate-300 text-sm">
-            Run ads like Gé¦9,999/year drone curriculum and 15% off kits. Track conversions instantly.
+            Run ads like GÃ©Â¦9,999/year drone curriculum and 15% off kits. Track conversions instantly.
           </p>
           <div className="rounded-xl border border-accent/30 bg-accent/10 text-accent-strong p-3 text-sm">
             Featured: Free AR/VR module for new signups.
@@ -234,5 +234,6 @@ export default function AdminPage() {
     </main>
   );
 }
+
 
 
