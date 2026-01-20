@@ -114,8 +114,8 @@ export default function AdminQuestionsPage() {
       setStatus("Add some questions before uploading.");
       return;
     }
-    const module = modules.find((m) => m.id === selectedModuleId);
-    if (!module) {
+    const selectedModule = modules.find((m) => m.id === selectedModuleId);
+    if (!selectedModule) {
       setStatus("Invalid activity selection.");
       return;
     }
@@ -123,15 +123,15 @@ export default function AdminQuestionsPage() {
     setStatus("Uploading questions...");
     try {
       const payload = {
-        moduleId: module.id,
-        moduleTitle: module.title,
-        grade: module.grade,
-        subject: module.subject,
+        moduleId: selectedModule.id,
+        moduleTitle: selectedModule.title,
+        grade: selectedModule.grade,
+        subject: selectedModule.subject,
         createdAt: new Date().toISOString(),
         questions: questionsText.trim(),
       };
-      const gradeSegment = sanitizeSegment(module.grade);
-      const moduleSegment = sanitizeSegment(module.module || module.title);
+      const gradeSegment = sanitizeSegment(selectedModule.grade);
+      const moduleSegment = sanitizeSegment(selectedModule.module || selectedModule.title);
       const fileName = `${moduleSegment}-${Date.now()}.json`;
       await uploadFileToBucket({
         bucket: "curriculum-assets",
@@ -151,8 +151,8 @@ export default function AdminQuestionsPage() {
             `question-banks/${gradeSegment}/${moduleSegment}/${fileName}`,
           ).data.publicUrl,
           createdAt: payload.createdAt,
-          moduleTitle: module.title,
-          grade: module.grade,
+          moduleTitle: selectedModule.title,
+          grade: selectedModule.grade,
         },
         ...prev,
       ]);

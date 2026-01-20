@@ -12,8 +12,14 @@ type Message = {
   content: string;
 };
 
+const getAudioContextCtor = () => {
+  if (typeof window === "undefined") return null;
+  const win = window as typeof window & { webkitAudioContext?: typeof AudioContext };
+  return win.AudioContext || win.webkitAudioContext || null;
+};
+
 const createTonePlayer = () => {
-  const AudioContextCtor = typeof window !== "undefined" ? (window.AudioContext || (window as any).webkitAudioContext) : null;
+  const AudioContextCtor = getAudioContextCtor();
   let ctx: AudioContext | null = null;
 
   const getContext = async () => {
@@ -556,7 +562,7 @@ function MoodAIPageContent() {
           )}
             {messages.length === 0 && (
               <div className="h-full flex flex-col items-center justify-center text-center p-8 opacity-50">
-                <p className="text-lg font-semibold text-white">I'll guide you through a quick mood check.</p>
+                <p className="text-lg font-semibold text-white">I will guide you through a quick mood check.</p>
                 <p className="text-sm text-slate-400 max-w-md mt-2">
                   Answer each question to share how you feel about {module?.title ?? "this activity"} - there are no right or wrong answers.
                 </p>

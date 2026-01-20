@@ -1,0 +1,2309 @@
+{
+  "activityId": "69e47d05-b6d0-4f15-ac86-3ab54fc3be3b",
+  "title": "Monte Carlo Simulation Based on Flight Data",
+  "subject": "Maths",
+  "grade": "Grade 12",
+  "generatedAt": "2026-01-19T15:48:41.572Z",
+  "questions": [
+    {
+      "question": "Which quantity best captures the focus of \"Monte Carlo Simulation Based on Flight Data\"?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Students collect real drone flight time and battery data and use it to run Monte Carlo simulations in Python. The act..."
+        },
+        {
+          "label": "B",
+          "text": "Pilot preferences and style"
+        },
+        {
+          "label": "C",
+          "text": "Entertainment-only free flight"
+        },
+        {
+          "label": "D",
+          "text": "Hardware aesthetics unrelated to data"
+        }
+      ],
+      "answer": "A",
+      "explanation": "From description: Students collect real drone flight time and battery data and use it to run Monte Carlo simulations in Python. The activity introduces probability, randomness, ..."
+    },
+    {
+      "question": "Which variable must be measured to evaluate the objective?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Ignoring quantitative capture"
+        },
+        {
+          "label": "B",
+          "text": "Random internet values"
+        },
+        {
+          "label": "C",
+          "text": "Unlogged pilot reaction time"
+        },
+        {
+          "label": "D",
+          "text": "Quantify battery as specified."
+        }
+      ],
+      "answer": "D",
+      "explanation": "Key focus: battery"
+    },
+    {
+      "question": "How should battery be interpreted mathematically?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Compare recorded battery to the expected curve/relationship described."
+        },
+        {
+          "label": "B",
+          "text": "Use unrelated datasets"
+        },
+        {
+          "label": "C",
+          "text": "Assume expected values"
+        },
+        {
+          "label": "D",
+          "text": "Skip comparisons"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Validation uses expected vs observed battery."
+    },
+    {
+      "question": "How should battery vary if the objective is met?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Assume constant regardless of conditions"
+        },
+        {
+          "label": "B",
+          "text": "Follow the expected functional trend given in the activity (e.g., linear, inverse, piecewise)."
+        },
+        {
+          "label": "C",
+          "text": "Opposite trend with no justification"
+        },
+        {
+          "label": "D",
+          "text": "No relationship; values should be random"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Trend form is defined by the described objective/phenomenon."
+    },
+    {
+      "question": "Which script element most directly controls the measured variable?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Unused placeholder text"
+        },
+        {
+          "label": "B",
+          "text": "Aesthetic spacing changes"
+        },
+        {
+          "label": "C",
+          "text": "\"\"\"DJI Tello Classroom Activity Script"
+        },
+        {
+          "label": "D",
+          "text": "Comments unrelated to execution"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Measured outcomes depend on correct parameters."
+    },
+    {
+      "question": "What must be verified in the SOP before logging data?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Skipping pre-flight checks"
+        },
+        {
+          "label": "B",
+          "text": "the SOP checklist items"
+        },
+        {
+          "label": "C",
+          "text": "Ignoring safety limits"
+        },
+        {
+          "label": "D",
+          "text": "Using another activity's steps"
+        }
+      ],
+      "answer": "B",
+      "explanation": "SOP gates valid, safe measurements."
+    },
+    {
+      "question": "Which result shows the objective was achieved quantitatively?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Any landing counts"
+        },
+        {
+          "label": "B",
+          "text": "Observed data matches the described objective (Students collect real drone flight time and battery data and use it to run Monte Carlo sim..."
+        },
+        {
+          "label": "C",
+          "text": "Only subjective smoothness matters"
+        },
+        {
+          "label": "D",
+          "text": "No measurements reviewed"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Success = matching objective with data."
+    },
+    {
+      "question": "What comparison is required to validate findings mathematically?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Contrast observed curve/values with the expected pattern described in the activity."
+        },
+        {
+          "label": "B",
+          "text": "Use random baselines"
+        },
+        {
+          "label": "C",
+          "text": "Compare to entertainment metrics"
+        },
+        {
+          "label": "D",
+          "text": "Accept first run without review"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Validation hinges on expected-vs-observed comparison."
+    },
+    {
+      "question": "First technical step when troubleshooting?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Ignore logs and rerun blindly"
+        },
+        {
+          "label": "B",
+          "text": "Re-check SOP steps and parameters affecting battery before changing hardware."
+        },
+        {
+          "label": "C",
+          "text": "Swap hardware immediately"
+        },
+        {
+          "label": "D",
+          "text": "Skip procedure review"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Start with procedure/parameters, not guesses."
+    },
+    {
+      "question": "How do students separate key behaviors?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Memorize trivia"
+        },
+        {
+          "label": "B",
+          "text": "Compare expected vs observed patterns for battery and note deviations."
+        },
+        {
+          "label": "C",
+          "text": "Avoid comparisons"
+        },
+        {
+          "label": "D",
+          "text": "Focus on aesthetics"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Pattern comparison yields technical insight."
+    },
+    {
+      "question": "Which practice ensures dependable logs?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Change steps mid-run with no record"
+        },
+        {
+          "label": "B",
+          "text": "Rely on memory"
+        },
+        {
+          "label": "C",
+          "text": "Log every run and keep parameters/procedure consistent before interpreting."
+        },
+        {
+          "label": "D",
+          "text": "Skip logging"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Reliability needs disciplined logging and consistency."
+    },
+    {
+      "question": "Which prep step avoids bad data?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Ignore objectives entirely"
+        },
+        {
+          "label": "B",
+          "text": "Review objectives, SOP constraints, and key parameters prior to execution."
+        },
+        {
+          "label": "C",
+          "text": "Use unrelated checklists"
+        },
+        {
+          "label": "D",
+          "text": "Start without review"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Accurate runs need targeted prep."
+    },
+    {
+      "question": "Which quantity best captures the focus of \"Monte Carlo Simulation Based on Flight Data\"?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Students collect real drone flight time and battery data and use it to run Monte Carlo simulations in Python. The act..."
+        },
+        {
+          "label": "B",
+          "text": "Pilot preferences and style"
+        },
+        {
+          "label": "C",
+          "text": "Hardware aesthetics unrelated to data"
+        },
+        {
+          "label": "D",
+          "text": "Entertainment-only free flight"
+        }
+      ],
+      "answer": "A",
+      "explanation": "From description: Students collect real drone flight time and battery data and use it to run Monte Carlo simulations in Python. The activity introduces probability, randomness, ..."
+    },
+    {
+      "question": "Which variable must be measured to evaluate the objective?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Quantify battery as specified."
+        },
+        {
+          "label": "B",
+          "text": "Unlogged pilot reaction time"
+        },
+        {
+          "label": "C",
+          "text": "Random internet values"
+        },
+        {
+          "label": "D",
+          "text": "Ignoring quantitative capture"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Key focus: battery"
+    },
+    {
+      "question": "How should battery be interpreted mathematically?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Assume expected values"
+        },
+        {
+          "label": "B",
+          "text": "Compare recorded battery to the expected curve/relationship described."
+        },
+        {
+          "label": "C",
+          "text": "Use unrelated datasets"
+        },
+        {
+          "label": "D",
+          "text": "Skip comparisons"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Validation uses expected vs observed battery."
+    },
+    {
+      "question": "How should battery vary if the objective is met?",
+      "options": [
+        {
+          "label": "A",
+          "text": "No relationship; values should be random"
+        },
+        {
+          "label": "B",
+          "text": "Opposite trend with no justification"
+        },
+        {
+          "label": "C",
+          "text": "Follow the expected functional trend given in the activity (e.g., linear, inverse, piecewise)."
+        },
+        {
+          "label": "D",
+          "text": "Assume constant regardless of conditions"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Trend form is defined by the described objective/phenomenon."
+    },
+    {
+      "question": "Which script element most directly controls the measured variable?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Unused placeholder text"
+        },
+        {
+          "label": "B",
+          "text": "Comments unrelated to execution"
+        },
+        {
+          "label": "C",
+          "text": "Aesthetic spacing changes"
+        },
+        {
+          "label": "D",
+          "text": "\"\"\"DJI Tello Classroom Activity Script"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Measured outcomes depend on correct parameters."
+    },
+    {
+      "question": "What must be verified in the SOP before logging data?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Ignoring safety limits"
+        },
+        {
+          "label": "B",
+          "text": "the SOP checklist items"
+        },
+        {
+          "label": "C",
+          "text": "Using another activity's steps"
+        },
+        {
+          "label": "D",
+          "text": "Skipping pre-flight checks"
+        }
+      ],
+      "answer": "B",
+      "explanation": "SOP gates valid, safe measurements."
+    },
+    {
+      "question": "Which result shows the objective was achieved quantitatively?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Only subjective smoothness matters"
+        },
+        {
+          "label": "B",
+          "text": "Observed data matches the described objective (Students collect real drone flight time and battery data and use it to run Monte Carlo sim..."
+        },
+        {
+          "label": "C",
+          "text": "Any landing counts"
+        },
+        {
+          "label": "D",
+          "text": "No measurements reviewed"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Success = matching objective with data."
+    },
+    {
+      "question": "What comparison is required to validate findings mathematically?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Compare to entertainment metrics"
+        },
+        {
+          "label": "B",
+          "text": "Accept first run without review"
+        },
+        {
+          "label": "C",
+          "text": "Use random baselines"
+        },
+        {
+          "label": "D",
+          "text": "Contrast observed curve/values with the expected pattern described in the activity."
+        }
+      ],
+      "answer": "D",
+      "explanation": "Validation hinges on expected-vs-observed comparison."
+    },
+    {
+      "question": "First technical step when troubleshooting?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Swap hardware immediately"
+        },
+        {
+          "label": "B",
+          "text": "Skip procedure review"
+        },
+        {
+          "label": "C",
+          "text": "Ignore logs and rerun blindly"
+        },
+        {
+          "label": "D",
+          "text": "Re-check SOP steps and parameters affecting battery before changing hardware."
+        }
+      ],
+      "answer": "D",
+      "explanation": "Start with procedure/parameters, not guesses."
+    },
+    {
+      "question": "How do students separate key behaviors?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Compare expected vs observed patterns for battery and note deviations."
+        },
+        {
+          "label": "B",
+          "text": "Memorize trivia"
+        },
+        {
+          "label": "C",
+          "text": "Avoid comparisons"
+        },
+        {
+          "label": "D",
+          "text": "Focus on aesthetics"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Pattern comparison yields technical insight."
+    },
+    {
+      "question": "Which practice ensures dependable logs?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Rely on memory"
+        },
+        {
+          "label": "B",
+          "text": "Skip logging"
+        },
+        {
+          "label": "C",
+          "text": "Log every run and keep parameters/procedure consistent before interpreting."
+        },
+        {
+          "label": "D",
+          "text": "Change steps mid-run with no record"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Reliability needs disciplined logging and consistency."
+    },
+    {
+      "question": "Which prep step avoids bad data?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Review objectives, SOP constraints, and key parameters prior to execution."
+        },
+        {
+          "label": "B",
+          "text": "Ignore objectives entirely"
+        },
+        {
+          "label": "C",
+          "text": "Use unrelated checklists"
+        },
+        {
+          "label": "D",
+          "text": "Start without review"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Accurate runs need targeted prep."
+    },
+    {
+      "question": "Which quantity best captures the focus of \"Monte Carlo Simulation Based on Flight Data\"?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Entertainment-only free flight"
+        },
+        {
+          "label": "B",
+          "text": "Pilot preferences and style"
+        },
+        {
+          "label": "C",
+          "text": "Hardware aesthetics unrelated to data"
+        },
+        {
+          "label": "D",
+          "text": "Students collect real drone flight time and battery data and use it to run Monte Carlo simulations in Python. The act..."
+        }
+      ],
+      "answer": "D",
+      "explanation": "From description: Students collect real drone flight time and battery data and use it to run Monte Carlo simulations in Python. The activity introduces probability, randomness, ..."
+    },
+    {
+      "question": "Which variable must be measured to evaluate the objective?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Quantify battery as specified."
+        },
+        {
+          "label": "B",
+          "text": "Ignoring quantitative capture"
+        },
+        {
+          "label": "C",
+          "text": "Random internet values"
+        },
+        {
+          "label": "D",
+          "text": "Unlogged pilot reaction time"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Key focus: battery"
+    },
+    {
+      "question": "How should battery be interpreted mathematically?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Compare recorded battery to the expected curve/relationship described."
+        },
+        {
+          "label": "B",
+          "text": "Use unrelated datasets"
+        },
+        {
+          "label": "C",
+          "text": "Skip comparisons"
+        },
+        {
+          "label": "D",
+          "text": "Assume expected values"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Validation uses expected vs observed battery."
+    },
+    {
+      "question": "How should battery vary if the objective is met?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Follow the expected functional trend given in the activity (e.g., linear, inverse, piecewise)."
+        },
+        {
+          "label": "B",
+          "text": "No relationship; values should be random"
+        },
+        {
+          "label": "C",
+          "text": "Assume constant regardless of conditions"
+        },
+        {
+          "label": "D",
+          "text": "Opposite trend with no justification"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Trend form is defined by the described objective/phenomenon."
+    },
+    {
+      "question": "Which script element most directly controls the measured variable?",
+      "options": [
+        {
+          "label": "A",
+          "text": "\"\"\"DJI Tello Classroom Activity Script"
+        },
+        {
+          "label": "B",
+          "text": "Unused placeholder text"
+        },
+        {
+          "label": "C",
+          "text": "Comments unrelated to execution"
+        },
+        {
+          "label": "D",
+          "text": "Aesthetic spacing changes"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Measured outcomes depend on correct parameters."
+    },
+    {
+      "question": "What must be verified in the SOP before logging data?",
+      "options": [
+        {
+          "label": "A",
+          "text": "the SOP checklist items"
+        },
+        {
+          "label": "B",
+          "text": "Skipping pre-flight checks"
+        },
+        {
+          "label": "C",
+          "text": "Using another activity's steps"
+        },
+        {
+          "label": "D",
+          "text": "Ignoring safety limits"
+        }
+      ],
+      "answer": "A",
+      "explanation": "SOP gates valid, safe measurements."
+    },
+    {
+      "question": "Which result shows the objective was achieved quantitatively?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Any landing counts"
+        },
+        {
+          "label": "B",
+          "text": "Only subjective smoothness matters"
+        },
+        {
+          "label": "C",
+          "text": "Observed data matches the described objective (Students collect real drone flight time and battery data and use it to run Monte Carlo sim..."
+        },
+        {
+          "label": "D",
+          "text": "No measurements reviewed"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Success = matching objective with data."
+    },
+    {
+      "question": "What comparison is required to validate findings mathematically?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Contrast observed curve/values with the expected pattern described in the activity."
+        },
+        {
+          "label": "B",
+          "text": "Use random baselines"
+        },
+        {
+          "label": "C",
+          "text": "Accept first run without review"
+        },
+        {
+          "label": "D",
+          "text": "Compare to entertainment metrics"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Validation hinges on expected-vs-observed comparison."
+    },
+    {
+      "question": "First technical step when troubleshooting?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Swap hardware immediately"
+        },
+        {
+          "label": "B",
+          "text": "Re-check SOP steps and parameters affecting battery before changing hardware."
+        },
+        {
+          "label": "C",
+          "text": "Skip procedure review"
+        },
+        {
+          "label": "D",
+          "text": "Ignore logs and rerun blindly"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Start with procedure/parameters, not guesses."
+    },
+    {
+      "question": "How do students separate key behaviors?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Compare expected vs observed patterns for battery and note deviations."
+        },
+        {
+          "label": "B",
+          "text": "Avoid comparisons"
+        },
+        {
+          "label": "C",
+          "text": "Focus on aesthetics"
+        },
+        {
+          "label": "D",
+          "text": "Memorize trivia"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Pattern comparison yields technical insight."
+    },
+    {
+      "question": "Which practice ensures dependable logs?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Rely on memory"
+        },
+        {
+          "label": "B",
+          "text": "Change steps mid-run with no record"
+        },
+        {
+          "label": "C",
+          "text": "Skip logging"
+        },
+        {
+          "label": "D",
+          "text": "Log every run and keep parameters/procedure consistent before interpreting."
+        }
+      ],
+      "answer": "D",
+      "explanation": "Reliability needs disciplined logging and consistency."
+    },
+    {
+      "question": "Which prep step avoids bad data?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Use unrelated checklists"
+        },
+        {
+          "label": "B",
+          "text": "Ignore objectives entirely"
+        },
+        {
+          "label": "C",
+          "text": "Review objectives, SOP constraints, and key parameters prior to execution."
+        },
+        {
+          "label": "D",
+          "text": "Start without review"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Accurate runs need targeted prep."
+    },
+    {
+      "question": "Which quantity best captures the focus of \"Monte Carlo Simulation Based on Flight Data\"?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Pilot preferences and style"
+        },
+        {
+          "label": "B",
+          "text": "Hardware aesthetics unrelated to data"
+        },
+        {
+          "label": "C",
+          "text": "Entertainment-only free flight"
+        },
+        {
+          "label": "D",
+          "text": "Students collect real drone flight time and battery data and use it to run Monte Carlo simulations in Python. The act..."
+        }
+      ],
+      "answer": "D",
+      "explanation": "From description: Students collect real drone flight time and battery data and use it to run Monte Carlo simulations in Python. The activity introduces probability, randomness, ..."
+    },
+    {
+      "question": "Which variable must be measured to evaluate the objective?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Random internet values"
+        },
+        {
+          "label": "B",
+          "text": "Unlogged pilot reaction time"
+        },
+        {
+          "label": "C",
+          "text": "Ignoring quantitative capture"
+        },
+        {
+          "label": "D",
+          "text": "Quantify battery as specified."
+        }
+      ],
+      "answer": "D",
+      "explanation": "Key focus: battery"
+    },
+    {
+      "question": "How should battery be interpreted mathematically?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Skip comparisons"
+        },
+        {
+          "label": "B",
+          "text": "Assume expected values"
+        },
+        {
+          "label": "C",
+          "text": "Use unrelated datasets"
+        },
+        {
+          "label": "D",
+          "text": "Compare recorded battery to the expected curve/relationship described."
+        }
+      ],
+      "answer": "D",
+      "explanation": "Validation uses expected vs observed battery."
+    },
+    {
+      "question": "How should battery vary if the objective is met?",
+      "options": [
+        {
+          "label": "A",
+          "text": "No relationship; values should be random"
+        },
+        {
+          "label": "B",
+          "text": "Follow the expected functional trend given in the activity (e.g., linear, inverse, piecewise)."
+        },
+        {
+          "label": "C",
+          "text": "Opposite trend with no justification"
+        },
+        {
+          "label": "D",
+          "text": "Assume constant regardless of conditions"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Trend form is defined by the described objective/phenomenon."
+    },
+    {
+      "question": "Which script element most directly controls the measured variable?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Aesthetic spacing changes"
+        },
+        {
+          "label": "B",
+          "text": "Comments unrelated to execution"
+        },
+        {
+          "label": "C",
+          "text": "Unused placeholder text"
+        },
+        {
+          "label": "D",
+          "text": "\"\"\"DJI Tello Classroom Activity Script"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Measured outcomes depend on correct parameters."
+    },
+    {
+      "question": "What must be verified in the SOP before logging data?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Ignoring safety limits"
+        },
+        {
+          "label": "B",
+          "text": "Using another activity's steps"
+        },
+        {
+          "label": "C",
+          "text": "Skipping pre-flight checks"
+        },
+        {
+          "label": "D",
+          "text": "the SOP checklist items"
+        }
+      ],
+      "answer": "D",
+      "explanation": "SOP gates valid, safe measurements."
+    },
+    {
+      "question": "Which result shows the objective was achieved quantitatively?",
+      "options": [
+        {
+          "label": "A",
+          "text": "No measurements reviewed"
+        },
+        {
+          "label": "B",
+          "text": "Only subjective smoothness matters"
+        },
+        {
+          "label": "C",
+          "text": "Any landing counts"
+        },
+        {
+          "label": "D",
+          "text": "Observed data matches the described objective (Students collect real drone flight time and battery data and use it to run Monte Carlo sim..."
+        }
+      ],
+      "answer": "D",
+      "explanation": "Success = matching objective with data."
+    },
+    {
+      "question": "What comparison is required to validate findings mathematically?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Contrast observed curve/values with the expected pattern described in the activity."
+        },
+        {
+          "label": "B",
+          "text": "Use random baselines"
+        },
+        {
+          "label": "C",
+          "text": "Compare to entertainment metrics"
+        },
+        {
+          "label": "D",
+          "text": "Accept first run without review"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Validation hinges on expected-vs-observed comparison."
+    },
+    {
+      "question": "First technical step when troubleshooting?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Swap hardware immediately"
+        },
+        {
+          "label": "B",
+          "text": "Re-check SOP steps and parameters affecting battery before changing hardware."
+        },
+        {
+          "label": "C",
+          "text": "Skip procedure review"
+        },
+        {
+          "label": "D",
+          "text": "Ignore logs and rerun blindly"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Start with procedure/parameters, not guesses."
+    },
+    {
+      "question": "How do students separate key behaviors?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Avoid comparisons"
+        },
+        {
+          "label": "B",
+          "text": "Compare expected vs observed patterns for battery and note deviations."
+        },
+        {
+          "label": "C",
+          "text": "Focus on aesthetics"
+        },
+        {
+          "label": "D",
+          "text": "Memorize trivia"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Pattern comparison yields technical insight."
+    },
+    {
+      "question": "Which practice ensures dependable logs?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Rely on memory"
+        },
+        {
+          "label": "B",
+          "text": "Change steps mid-run with no record"
+        },
+        {
+          "label": "C",
+          "text": "Log every run and keep parameters/procedure consistent before interpreting."
+        },
+        {
+          "label": "D",
+          "text": "Skip logging"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Reliability needs disciplined logging and consistency."
+    },
+    {
+      "question": "Which prep step avoids bad data?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Ignore objectives entirely"
+        },
+        {
+          "label": "B",
+          "text": "Start without review"
+        },
+        {
+          "label": "C",
+          "text": "Use unrelated checklists"
+        },
+        {
+          "label": "D",
+          "text": "Review objectives, SOP constraints, and key parameters prior to execution."
+        }
+      ],
+      "answer": "D",
+      "explanation": "Accurate runs need targeted prep."
+    },
+    {
+      "question": "Which quantity best captures the focus of \"Monte Carlo Simulation Based on Flight Data\"?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Hardware aesthetics unrelated to data"
+        },
+        {
+          "label": "B",
+          "text": "Students collect real drone flight time and battery data and use it to run Monte Carlo simulations in Python. The act..."
+        },
+        {
+          "label": "C",
+          "text": "Entertainment-only free flight"
+        },
+        {
+          "label": "D",
+          "text": "Pilot preferences and style"
+        }
+      ],
+      "answer": "B",
+      "explanation": "From description: Students collect real drone flight time and battery data and use it to run Monte Carlo simulations in Python. The activity introduces probability, randomness, ..."
+    },
+    {
+      "question": "Which variable must be measured to evaluate the objective?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Random internet values"
+        },
+        {
+          "label": "B",
+          "text": "Unlogged pilot reaction time"
+        },
+        {
+          "label": "C",
+          "text": "Quantify battery as specified."
+        },
+        {
+          "label": "D",
+          "text": "Ignoring quantitative capture"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Key focus: battery"
+    },
+    {
+      "question": "How should battery be interpreted mathematically?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Compare recorded battery to the expected curve/relationship described."
+        },
+        {
+          "label": "B",
+          "text": "Use unrelated datasets"
+        },
+        {
+          "label": "C",
+          "text": "Assume expected values"
+        },
+        {
+          "label": "D",
+          "text": "Skip comparisons"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Validation uses expected vs observed battery."
+    },
+    {
+      "question": "How should battery vary if the objective is met?",
+      "options": [
+        {
+          "label": "A",
+          "text": "No relationship; values should be random"
+        },
+        {
+          "label": "B",
+          "text": "Assume constant regardless of conditions"
+        },
+        {
+          "label": "C",
+          "text": "Follow the expected functional trend given in the activity (e.g., linear, inverse, piecewise)."
+        },
+        {
+          "label": "D",
+          "text": "Opposite trend with no justification"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Trend form is defined by the described objective/phenomenon."
+    },
+    {
+      "question": "Which script element most directly controls the measured variable?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Aesthetic spacing changes"
+        },
+        {
+          "label": "B",
+          "text": "Comments unrelated to execution"
+        },
+        {
+          "label": "C",
+          "text": "Unused placeholder text"
+        },
+        {
+          "label": "D",
+          "text": "\"\"\"DJI Tello Classroom Activity Script"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Measured outcomes depend on correct parameters."
+    },
+    {
+      "question": "What must be verified in the SOP before logging data?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Using another activity's steps"
+        },
+        {
+          "label": "B",
+          "text": "Skipping pre-flight checks"
+        },
+        {
+          "label": "C",
+          "text": "the SOP checklist items"
+        },
+        {
+          "label": "D",
+          "text": "Ignoring safety limits"
+        }
+      ],
+      "answer": "C",
+      "explanation": "SOP gates valid, safe measurements."
+    },
+    {
+      "question": "Which result shows the objective was achieved quantitatively?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Any landing counts"
+        },
+        {
+          "label": "B",
+          "text": "Observed data matches the described objective (Students collect real drone flight time and battery data and use it to run Monte Carlo sim..."
+        },
+        {
+          "label": "C",
+          "text": "No measurements reviewed"
+        },
+        {
+          "label": "D",
+          "text": "Only subjective smoothness matters"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Success = matching objective with data."
+    },
+    {
+      "question": "What comparison is required to validate findings mathematically?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Contrast observed curve/values with the expected pattern described in the activity."
+        },
+        {
+          "label": "B",
+          "text": "Compare to entertainment metrics"
+        },
+        {
+          "label": "C",
+          "text": "Use random baselines"
+        },
+        {
+          "label": "D",
+          "text": "Accept first run without review"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Validation hinges on expected-vs-observed comparison."
+    },
+    {
+      "question": "First technical step when troubleshooting?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Ignore logs and rerun blindly"
+        },
+        {
+          "label": "B",
+          "text": "Skip procedure review"
+        },
+        {
+          "label": "C",
+          "text": "Swap hardware immediately"
+        },
+        {
+          "label": "D",
+          "text": "Re-check SOP steps and parameters affecting battery before changing hardware."
+        }
+      ],
+      "answer": "D",
+      "explanation": "Start with procedure/parameters, not guesses."
+    },
+    {
+      "question": "How do students separate key behaviors?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Memorize trivia"
+        },
+        {
+          "label": "B",
+          "text": "Avoid comparisons"
+        },
+        {
+          "label": "C",
+          "text": "Focus on aesthetics"
+        },
+        {
+          "label": "D",
+          "text": "Compare expected vs observed patterns for battery and note deviations."
+        }
+      ],
+      "answer": "D",
+      "explanation": "Pattern comparison yields technical insight."
+    },
+    {
+      "question": "Which practice ensures dependable logs?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Change steps mid-run with no record"
+        },
+        {
+          "label": "B",
+          "text": "Log every run and keep parameters/procedure consistent before interpreting."
+        },
+        {
+          "label": "C",
+          "text": "Skip logging"
+        },
+        {
+          "label": "D",
+          "text": "Rely on memory"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Reliability needs disciplined logging and consistency."
+    },
+    {
+      "question": "Which prep step avoids bad data?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Ignore objectives entirely"
+        },
+        {
+          "label": "B",
+          "text": "Start without review"
+        },
+        {
+          "label": "C",
+          "text": "Review objectives, SOP constraints, and key parameters prior to execution."
+        },
+        {
+          "label": "D",
+          "text": "Use unrelated checklists"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Accurate runs need targeted prep."
+    },
+    {
+      "question": "Which quantity best captures the focus of \"Monte Carlo Simulation Based on Flight Data\"?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Hardware aesthetics unrelated to data"
+        },
+        {
+          "label": "B",
+          "text": "Entertainment-only free flight"
+        },
+        {
+          "label": "C",
+          "text": "Students collect real drone flight time and battery data and use it to run Monte Carlo simulations in Python. The act..."
+        },
+        {
+          "label": "D",
+          "text": "Pilot preferences and style"
+        }
+      ],
+      "answer": "C",
+      "explanation": "From description: Students collect real drone flight time and battery data and use it to run Monte Carlo simulations in Python. The activity introduces probability, randomness, ..."
+    },
+    {
+      "question": "Which variable must be measured to evaluate the objective?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Random internet values"
+        },
+        {
+          "label": "B",
+          "text": "Quantify battery as specified."
+        },
+        {
+          "label": "C",
+          "text": "Unlogged pilot reaction time"
+        },
+        {
+          "label": "D",
+          "text": "Ignoring quantitative capture"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Key focus: battery"
+    },
+    {
+      "question": "How should battery be interpreted mathematically?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Assume expected values"
+        },
+        {
+          "label": "B",
+          "text": "Use unrelated datasets"
+        },
+        {
+          "label": "C",
+          "text": "Compare recorded battery to the expected curve/relationship described."
+        },
+        {
+          "label": "D",
+          "text": "Skip comparisons"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Validation uses expected vs observed battery."
+    },
+    {
+      "question": "How should battery vary if the objective is met?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Follow the expected functional trend given in the activity (e.g., linear, inverse, piecewise)."
+        },
+        {
+          "label": "B",
+          "text": "Opposite trend with no justification"
+        },
+        {
+          "label": "C",
+          "text": "No relationship; values should be random"
+        },
+        {
+          "label": "D",
+          "text": "Assume constant regardless of conditions"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Trend form is defined by the described objective/phenomenon."
+    },
+    {
+      "question": "Which script element most directly controls the measured variable?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Aesthetic spacing changes"
+        },
+        {
+          "label": "B",
+          "text": "Unused placeholder text"
+        },
+        {
+          "label": "C",
+          "text": "Comments unrelated to execution"
+        },
+        {
+          "label": "D",
+          "text": "\"\"\"DJI Tello Classroom Activity Script"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Measured outcomes depend on correct parameters."
+    },
+    {
+      "question": "What must be verified in the SOP before logging data?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Skipping pre-flight checks"
+        },
+        {
+          "label": "B",
+          "text": "the SOP checklist items"
+        },
+        {
+          "label": "C",
+          "text": "Ignoring safety limits"
+        },
+        {
+          "label": "D",
+          "text": "Using another activity's steps"
+        }
+      ],
+      "answer": "B",
+      "explanation": "SOP gates valid, safe measurements."
+    },
+    {
+      "question": "Which result shows the objective was achieved quantitatively?",
+      "options": [
+        {
+          "label": "A",
+          "text": "No measurements reviewed"
+        },
+        {
+          "label": "B",
+          "text": "Only subjective smoothness matters"
+        },
+        {
+          "label": "C",
+          "text": "Any landing counts"
+        },
+        {
+          "label": "D",
+          "text": "Observed data matches the described objective (Students collect real drone flight time and battery data and use it to run Monte Carlo sim..."
+        }
+      ],
+      "answer": "D",
+      "explanation": "Success = matching objective with data."
+    },
+    {
+      "question": "What comparison is required to validate findings mathematically?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Compare to entertainment metrics"
+        },
+        {
+          "label": "B",
+          "text": "Accept first run without review"
+        },
+        {
+          "label": "C",
+          "text": "Use random baselines"
+        },
+        {
+          "label": "D",
+          "text": "Contrast observed curve/values with the expected pattern described in the activity."
+        }
+      ],
+      "answer": "D",
+      "explanation": "Validation hinges on expected-vs-observed comparison."
+    },
+    {
+      "question": "First technical step when troubleshooting?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Skip procedure review"
+        },
+        {
+          "label": "B",
+          "text": "Swap hardware immediately"
+        },
+        {
+          "label": "C",
+          "text": "Re-check SOP steps and parameters affecting battery before changing hardware."
+        },
+        {
+          "label": "D",
+          "text": "Ignore logs and rerun blindly"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Start with procedure/parameters, not guesses."
+    },
+    {
+      "question": "How do students separate key behaviors?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Compare expected vs observed patterns for battery and note deviations."
+        },
+        {
+          "label": "B",
+          "text": "Memorize trivia"
+        },
+        {
+          "label": "C",
+          "text": "Avoid comparisons"
+        },
+        {
+          "label": "D",
+          "text": "Focus on aesthetics"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Pattern comparison yields technical insight."
+    },
+    {
+      "question": "Which practice ensures dependable logs?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Log every run and keep parameters/procedure consistent before interpreting."
+        },
+        {
+          "label": "B",
+          "text": "Change steps mid-run with no record"
+        },
+        {
+          "label": "C",
+          "text": "Skip logging"
+        },
+        {
+          "label": "D",
+          "text": "Rely on memory"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Reliability needs disciplined logging and consistency."
+    },
+    {
+      "question": "Which prep step avoids bad data?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Use unrelated checklists"
+        },
+        {
+          "label": "B",
+          "text": "Review objectives, SOP constraints, and key parameters prior to execution."
+        },
+        {
+          "label": "C",
+          "text": "Start without review"
+        },
+        {
+          "label": "D",
+          "text": "Ignore objectives entirely"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Accurate runs need targeted prep."
+    },
+    {
+      "question": "Which quantity best captures the focus of \"Monte Carlo Simulation Based on Flight Data\"?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Pilot preferences and style"
+        },
+        {
+          "label": "B",
+          "text": "Hardware aesthetics unrelated to data"
+        },
+        {
+          "label": "C",
+          "text": "Students collect real drone flight time and battery data and use it to run Monte Carlo simulations in Python. The act..."
+        },
+        {
+          "label": "D",
+          "text": "Entertainment-only free flight"
+        }
+      ],
+      "answer": "C",
+      "explanation": "From description: Students collect real drone flight time and battery data and use it to run Monte Carlo simulations in Python. The activity introduces probability, randomness, ..."
+    },
+    {
+      "question": "Which variable must be measured to evaluate the objective?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Ignoring quantitative capture"
+        },
+        {
+          "label": "B",
+          "text": "Quantify battery as specified."
+        },
+        {
+          "label": "C",
+          "text": "Unlogged pilot reaction time"
+        },
+        {
+          "label": "D",
+          "text": "Random internet values"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Key focus: battery"
+    },
+    {
+      "question": "How should battery be interpreted mathematically?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Assume expected values"
+        },
+        {
+          "label": "B",
+          "text": "Compare recorded battery to the expected curve/relationship described."
+        },
+        {
+          "label": "C",
+          "text": "Skip comparisons"
+        },
+        {
+          "label": "D",
+          "text": "Use unrelated datasets"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Validation uses expected vs observed battery."
+    },
+    {
+      "question": "How should battery vary if the objective is met?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Assume constant regardless of conditions"
+        },
+        {
+          "label": "B",
+          "text": "No relationship; values should be random"
+        },
+        {
+          "label": "C",
+          "text": "Opposite trend with no justification"
+        },
+        {
+          "label": "D",
+          "text": "Follow the expected functional trend given in the activity (e.g., linear, inverse, piecewise)."
+        }
+      ],
+      "answer": "D",
+      "explanation": "Trend form is defined by the described objective/phenomenon."
+    },
+    {
+      "question": "Which script element most directly controls the measured variable?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Aesthetic spacing changes"
+        },
+        {
+          "label": "B",
+          "text": "Unused placeholder text"
+        },
+        {
+          "label": "C",
+          "text": "Comments unrelated to execution"
+        },
+        {
+          "label": "D",
+          "text": "\"\"\"DJI Tello Classroom Activity Script"
+        }
+      ],
+      "answer": "D",
+      "explanation": "Measured outcomes depend on correct parameters."
+    },
+    {
+      "question": "What must be verified in the SOP before logging data?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Using another activity's steps"
+        },
+        {
+          "label": "B",
+          "text": "Ignoring safety limits"
+        },
+        {
+          "label": "C",
+          "text": "the SOP checklist items"
+        },
+        {
+          "label": "D",
+          "text": "Skipping pre-flight checks"
+        }
+      ],
+      "answer": "C",
+      "explanation": "SOP gates valid, safe measurements."
+    },
+    {
+      "question": "Which result shows the objective was achieved quantitatively?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Observed data matches the described objective (Students collect real drone flight time and battery data and use it to run Monte Carlo sim..."
+        },
+        {
+          "label": "B",
+          "text": "Any landing counts"
+        },
+        {
+          "label": "C",
+          "text": "No measurements reviewed"
+        },
+        {
+          "label": "D",
+          "text": "Only subjective smoothness matters"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Success = matching objective with data."
+    },
+    {
+      "question": "What comparison is required to validate findings mathematically?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Accept first run without review"
+        },
+        {
+          "label": "B",
+          "text": "Contrast observed curve/values with the expected pattern described in the activity."
+        },
+        {
+          "label": "C",
+          "text": "Compare to entertainment metrics"
+        },
+        {
+          "label": "D",
+          "text": "Use random baselines"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Validation hinges on expected-vs-observed comparison."
+    },
+    {
+      "question": "First technical step when troubleshooting?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Skip procedure review"
+        },
+        {
+          "label": "B",
+          "text": "Re-check SOP steps and parameters affecting battery before changing hardware."
+        },
+        {
+          "label": "C",
+          "text": "Ignore logs and rerun blindly"
+        },
+        {
+          "label": "D",
+          "text": "Swap hardware immediately"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Start with procedure/parameters, not guesses."
+    },
+    {
+      "question": "How do students separate key behaviors?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Focus on aesthetics"
+        },
+        {
+          "label": "B",
+          "text": "Compare expected vs observed patterns for battery and note deviations."
+        },
+        {
+          "label": "C",
+          "text": "Avoid comparisons"
+        },
+        {
+          "label": "D",
+          "text": "Memorize trivia"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Pattern comparison yields technical insight."
+    },
+    {
+      "question": "Which practice ensures dependable logs?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Log every run and keep parameters/procedure consistent before interpreting."
+        },
+        {
+          "label": "B",
+          "text": "Rely on memory"
+        },
+        {
+          "label": "C",
+          "text": "Change steps mid-run with no record"
+        },
+        {
+          "label": "D",
+          "text": "Skip logging"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Reliability needs disciplined logging and consistency."
+    },
+    {
+      "question": "Which prep step avoids bad data?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Ignore objectives entirely"
+        },
+        {
+          "label": "B",
+          "text": "Use unrelated checklists"
+        },
+        {
+          "label": "C",
+          "text": "Review objectives, SOP constraints, and key parameters prior to execution."
+        },
+        {
+          "label": "D",
+          "text": "Start without review"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Accurate runs need targeted prep."
+    },
+    {
+      "question": "Which quantity best captures the focus of \"Monte Carlo Simulation Based on Flight Data\"?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Students collect real drone flight time and battery data and use it to run Monte Carlo simulations in Python. The act..."
+        },
+        {
+          "label": "B",
+          "text": "Hardware aesthetics unrelated to data"
+        },
+        {
+          "label": "C",
+          "text": "Pilot preferences and style"
+        },
+        {
+          "label": "D",
+          "text": "Entertainment-only free flight"
+        }
+      ],
+      "answer": "A",
+      "explanation": "From description: Students collect real drone flight time and battery data and use it to run Monte Carlo simulations in Python. The activity introduces probability, randomness, ..."
+    },
+    {
+      "question": "Which variable must be measured to evaluate the objective?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Unlogged pilot reaction time"
+        },
+        {
+          "label": "B",
+          "text": "Quantify battery as specified."
+        },
+        {
+          "label": "C",
+          "text": "Ignoring quantitative capture"
+        },
+        {
+          "label": "D",
+          "text": "Random internet values"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Key focus: battery"
+    },
+    {
+      "question": "How should battery be interpreted mathematically?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Skip comparisons"
+        },
+        {
+          "label": "B",
+          "text": "Use unrelated datasets"
+        },
+        {
+          "label": "C",
+          "text": "Assume expected values"
+        },
+        {
+          "label": "D",
+          "text": "Compare recorded battery to the expected curve/relationship described."
+        }
+      ],
+      "answer": "D",
+      "explanation": "Validation uses expected vs observed battery."
+    },
+    {
+      "question": "How should battery vary if the objective is met?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Assume constant regardless of conditions"
+        },
+        {
+          "label": "B",
+          "text": "No relationship; values should be random"
+        },
+        {
+          "label": "C",
+          "text": "Opposite trend with no justification"
+        },
+        {
+          "label": "D",
+          "text": "Follow the expected functional trend given in the activity (e.g., linear, inverse, piecewise)."
+        }
+      ],
+      "answer": "D",
+      "explanation": "Trend form is defined by the described objective/phenomenon."
+    },
+    {
+      "question": "Which script element most directly controls the measured variable?",
+      "options": [
+        {
+          "label": "A",
+          "text": "\"\"\"DJI Tello Classroom Activity Script"
+        },
+        {
+          "label": "B",
+          "text": "Unused placeholder text"
+        },
+        {
+          "label": "C",
+          "text": "Aesthetic spacing changes"
+        },
+        {
+          "label": "D",
+          "text": "Comments unrelated to execution"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Measured outcomes depend on correct parameters."
+    },
+    {
+      "question": "What must be verified in the SOP before logging data?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Using another activity's steps"
+        },
+        {
+          "label": "B",
+          "text": "Skipping pre-flight checks"
+        },
+        {
+          "label": "C",
+          "text": "Ignoring safety limits"
+        },
+        {
+          "label": "D",
+          "text": "the SOP checklist items"
+        }
+      ],
+      "answer": "D",
+      "explanation": "SOP gates valid, safe measurements."
+    },
+    {
+      "question": "Which result shows the objective was achieved quantitatively?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Observed data matches the described objective (Students collect real drone flight time and battery data and use it to run Monte Carlo sim..."
+        },
+        {
+          "label": "B",
+          "text": "No measurements reviewed"
+        },
+        {
+          "label": "C",
+          "text": "Only subjective smoothness matters"
+        },
+        {
+          "label": "D",
+          "text": "Any landing counts"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Success = matching objective with data."
+    },
+    {
+      "question": "What comparison is required to validate findings mathematically?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Contrast observed curve/values with the expected pattern described in the activity."
+        },
+        {
+          "label": "B",
+          "text": "Accept first run without review"
+        },
+        {
+          "label": "C",
+          "text": "Use random baselines"
+        },
+        {
+          "label": "D",
+          "text": "Compare to entertainment metrics"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Validation hinges on expected-vs-observed comparison."
+    },
+    {
+      "question": "First technical step when troubleshooting?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Swap hardware immediately"
+        },
+        {
+          "label": "B",
+          "text": "Skip procedure review"
+        },
+        {
+          "label": "C",
+          "text": "Ignore logs and rerun blindly"
+        },
+        {
+          "label": "D",
+          "text": "Re-check SOP steps and parameters affecting battery before changing hardware."
+        }
+      ],
+      "answer": "D",
+      "explanation": "Start with procedure/parameters, not guesses."
+    },
+    {
+      "question": "How do students separate key behaviors?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Avoid comparisons"
+        },
+        {
+          "label": "B",
+          "text": "Memorize trivia"
+        },
+        {
+          "label": "C",
+          "text": "Focus on aesthetics"
+        },
+        {
+          "label": "D",
+          "text": "Compare expected vs observed patterns for battery and note deviations."
+        }
+      ],
+      "answer": "D",
+      "explanation": "Pattern comparison yields technical insight."
+    },
+    {
+      "question": "Which practice ensures dependable logs?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Skip logging"
+        },
+        {
+          "label": "B",
+          "text": "Log every run and keep parameters/procedure consistent before interpreting."
+        },
+        {
+          "label": "C",
+          "text": "Rely on memory"
+        },
+        {
+          "label": "D",
+          "text": "Change steps mid-run with no record"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Reliability needs disciplined logging and consistency."
+    },
+    {
+      "question": "Which prep step avoids bad data?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Use unrelated checklists"
+        },
+        {
+          "label": "B",
+          "text": "Review objectives, SOP constraints, and key parameters prior to execution."
+        },
+        {
+          "label": "C",
+          "text": "Start without review"
+        },
+        {
+          "label": "D",
+          "text": "Ignore objectives entirely"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Accurate runs need targeted prep."
+    },
+    {
+      "question": "Which quantity best captures the focus of \"Monte Carlo Simulation Based on Flight Data\"?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Pilot preferences and style"
+        },
+        {
+          "label": "B",
+          "text": "Students collect real drone flight time and battery data and use it to run Monte Carlo simulations in Python. The act..."
+        },
+        {
+          "label": "C",
+          "text": "Entertainment-only free flight"
+        },
+        {
+          "label": "D",
+          "text": "Hardware aesthetics unrelated to data"
+        }
+      ],
+      "answer": "B",
+      "explanation": "From description: Students collect real drone flight time and battery data and use it to run Monte Carlo simulations in Python. The activity introduces probability, randomness, ..."
+    },
+    {
+      "question": "Which variable must be measured to evaluate the objective?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Random internet values"
+        },
+        {
+          "label": "B",
+          "text": "Ignoring quantitative capture"
+        },
+        {
+          "label": "C",
+          "text": "Quantify battery as specified."
+        },
+        {
+          "label": "D",
+          "text": "Unlogged pilot reaction time"
+        }
+      ],
+      "answer": "C",
+      "explanation": "Key focus: battery"
+    },
+    {
+      "question": "How should battery be interpreted mathematically?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Use unrelated datasets"
+        },
+        {
+          "label": "B",
+          "text": "Compare recorded battery to the expected curve/relationship described."
+        },
+        {
+          "label": "C",
+          "text": "Assume expected values"
+        },
+        {
+          "label": "D",
+          "text": "Skip comparisons"
+        }
+      ],
+      "answer": "B",
+      "explanation": "Validation uses expected vs observed battery."
+    },
+    {
+      "question": "How should battery vary if the objective is met?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Follow the expected functional trend given in the activity (e.g., linear, inverse, piecewise)."
+        },
+        {
+          "label": "B",
+          "text": "Opposite trend with no justification"
+        },
+        {
+          "label": "C",
+          "text": "No relationship; values should be random"
+        },
+        {
+          "label": "D",
+          "text": "Assume constant regardless of conditions"
+        }
+      ],
+      "answer": "A",
+      "explanation": "Trend form is defined by the described objective/phenomenon."
+    }
+  ]
+}

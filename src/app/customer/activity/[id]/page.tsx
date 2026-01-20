@@ -139,7 +139,6 @@ const buildReportHtml = ({
   logFileName,
   plotFileName,
   report,
-  logPoints,
 }: {
   logoSrc: string | null;
   activityTitle: string;
@@ -152,7 +151,6 @@ const buildReportHtml = ({
   logFileName: string;
   plotFileName: string;
   report: AiReport;
-  logPoints: PlotPoint[];
 }) => {
   const detailsRows = [
     ["Activity", activityTitle],
@@ -346,7 +344,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [savingUploads, setSavingUploads] = useState(false);
   const [storedUploads, setStoredUploads] = useState<ActivityProgressEntry["uploads"] | null>(null);
-  const [markedDone, setMarkedDone] = useState(false);
+  const [, setMarkedDone] = useState(false);
   const [submissions, setSubmissions] = useState<ActivitySubmission[]>([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
@@ -386,16 +384,6 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     () => (submissions[submissions.length - 1]?.submissionNumber ?? 0) + 1,
     [submissions],
   );
-
-  const quizContext = useMemo(() => {
-    const codeSnippet = codeDisplay?.slice(0, 2400) ?? "";
-    return {
-      subject: module?.subject ?? "",
-      title: module?.title ?? "",
-      description: module?.description ?? "",
-      code: codeSnippet,
-    };
-  }, [codeDisplay, module]);
 
   const generateQuiz = async () => {
     if (!module) return;
@@ -513,7 +501,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
 
     const normalizeArray = (items: unknown[]): Array<{ question: string; options: Array<{ label: string; text: string }>; answer: string; explanation?: string }> => {
       return items
-        .map((item, idx) => {
+        .map((item) => {
           if (!item || typeof item !== "object") return null;
           const q = (item as { q?: string; question?: string }).question || (item as { q?: string }).q || "";
           const opts = safeOptions((item as { options?: unknown }).options);
@@ -1021,7 +1009,6 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
         logFileName: storedUploads?.logFile?.name ?? logFile?.name ?? "",
         plotFileName: storedUploads?.plotFile?.name ?? plotFile?.name ?? "",
         report,
-        logPoints: logPlotPoints,
       });
       const printWindow = window.open("", "_blank", "width=900,height=1200");
       if (!printWindow) {
@@ -1039,7 +1026,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     } finally {
       setDownloadingPdf(false);
     }
-  }, [module, report, pdfLogoSrc, studentName, storedUploads, logFile, plotFile, logPlotPoints, computedAccuracy]);
+  }, [module, report, pdfLogoSrc, studentName, storedUploads, logFile, plotFile, computedAccuracy]);
 
   const deleteSubmission = async (submissionId: string) => {
     if (!userId) {
