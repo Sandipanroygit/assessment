@@ -39,6 +39,7 @@ const mapRoleLabel = (role?: string | null) => {
   if (role === "student") return "Student";
   return "Student"; // default display for legacy "customer" roles
 };
+const shortId = (id: string) => (id.length <= 8 ? id : `${id.slice(0, 6)}...${id.slice(-4)}`);
 
 type SentimentFile = {
   moduleId: string;
@@ -235,9 +236,7 @@ export default function AdminPage() {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <p className="text-accent-strong uppercase text-xs tracking-[0.2em]">Admin</p>
-          <h1 className="text-3xl font-semibold text-white">
-            Hi {profile?.full_name ?? "Admin"}, here&apos;s your control room
-          </h1>
+          <h1 className="text-3xl font-semibold text-white">Welcome Admin to your Control Room</h1>
           <p className="text-slate-300 text-sm mt-2">
             Manage curriculum, products, orders, and promotions in one dashboard.
           </p>
@@ -570,6 +569,7 @@ export default function AdminPage() {
               <tr className="text-left text-slate-400 border-b border-white/10">
                 <th className="py-2 pr-3">Name</th>
                 <th className="py-2 pr-3">Role</th>
+                <th className="py-2 pr-3">User ID</th>
                 <th className="py-2 pr-3">Joined</th>
               </tr>
             </thead>
@@ -585,6 +585,7 @@ export default function AdminPage() {
                   <tr key={user.id} className="border-b border-white/5">
                     <td className="py-2 pr-3 font-semibold text-white">{user.full_name}</td>
                     <td className="py-2 pr-3 text-slate-300">{user.displayRole}</td>
+                    <td className="py-2 pr-3 text-slate-400 font-mono">{shortId(user.id)}</td>
                     <td className="py-2 pr-3 text-slate-300">{formatJoinedDate(user.created_at)}</td>
                   </tr>
                 ))
