@@ -91,9 +91,9 @@ export default function AdminPage() {
       { label: "Active modules", value: String(curriculumRows.length), delta: "Manage drone modules" },
       { label: "Products live", value: String(productRows.length), delta: "Ready in shop" },
       { label: "Orders this week", value: "0", delta: "No orders yet" },
-      { label: "Revenue (â‚¹)", value: "â‚¹0", delta: "Start selling to track" },
+      { label: "Registered users", value: String(userRows.length), delta: "Total signups to date" },
     ],
-    [curriculumRows.length, productRows.length],
+    [curriculumRows.length, productRows.length, userRows.length],
   );
 
   useEffect(() => {
