@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type DragEvent } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import type { CurriculumModule, Product } from "@/types";
 import { useRouter } from "next/navigation";
@@ -60,6 +60,7 @@ export default function AdminPage() {
   const [curriculumRows, setCurriculumRows] = useState<CurriculumModule[]>([]);
   const [productRows, setProductRows] = useState<Product[]>([]);
   const [userRows, setUserRows] = useState<AdminUser[]>([]);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const [sentimentFiles, setSentimentFiles] = useState<SentimentFile[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingCurriculumId, setEditingCurriculumId] = useState<string | null>(null);
@@ -95,6 +96,30 @@ export default function AdminPage() {
     ],
     [curriculumRows.length, productRows.length, userRows.length],
   );
+
+  const reorderCurriculum = (sourceId: string, targetId: string) => {
+    setCurriculumRows((prev) => {
+      const from = prev.findIndex((item) => item.id === sourceId);
+      const to = prev.findIndex((item) => item.id === targetId);
+      if (from === -1 || to === -1 || from === to) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  };
+
+  const handleDragStart = (id: string) => setDraggingId(id);
+  const handleDragEnd = () => setDraggingId(null);
+  const handleDragOver = (event: DragEvent<HTMLTableRowElement>) => event.preventDefault();
+  const handleDropOn = (targetId: string) => {
+    if (!draggingId || draggingId === targetId) {
+      setDraggingId(null);
+      return;
+    }
+    reorderCurriculum(draggingId, targetId);
+    setDraggingId(null);
+  };
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -327,7 +352,15 @@ export default function AdminPage() {
                 </tr>
               ) : (
                 curriculumRows.map((item) => (
-                  <tr key={item.id} className="border-b border-white/5">
+                  <tr
+                    key={item.id}
+                    className={`border-b border-white/5 ${draggingId === item.id ? "opacity-60" : ""}`}
+                    draggable
+                    onDragStart={() => handleDragStart(item.id)}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={(event) => handleDragOver(event)}
+                    onDrop={() => handleDropOn(item.id)}
+                  >
                     <td className="py-2 pr-3 font-semibold text-white">{item.title}</td>
                     <td className="py-2 pr-3 text-slate-300">{item.grade}</td>
                     <td className="py-2 pr-3 text-slate-300">{item.subject}</td>
@@ -335,26 +368,26 @@ export default function AdminPage() {
                       {item.assets.map((asset) => asset.label).join(", ")}
                     </td>
                     <td className="py-2 pr-3">
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <button
                           className="px-3 py-1 rounded-lg bg-white/10 border border-white/15 text-white text-xs"
-                        onClick={() => {
-                          setEditingCurriculumId(item.id);
-                          setCurriculumForm({
-                            title: item.title,
-                            grade: item.grade,
-                            subject: item.subject,
-                            module: item.module,
-                            description: item.description,
-                            assets: item.assets.map((a) => a.label).join(", "),
-                          });
-                          requestAnimationFrame(() => {
-                            curriculumEditRef.current?.scrollIntoView({ behavior: "smooth" });
-                          });
-                        }}
-                      >
-                        Edit
-                      </button>
+                          onClick={() => {
+                            setEditingCurriculumId(item.id);
+                            setCurriculumForm({
+                              title: item.title,
+                              grade: item.grade,
+                              subject: item.subject,
+                              module: item.module,
+                              description: item.description,
+                              assets: item.assets.map((a) => a.label).join(", "),
+                            });
+                            requestAnimationFrame(() => {
+                              curriculumEditRef.current?.scrollIntoView({ behavior: "smooth" });
+                            });
+                          }}
+                        >
+                          Edit
+                        </button>
                         <button
                           className="px-3 py-1 rounded-lg border border-red-600/70 text-red-400 text-xs hover:bg-red-600/25 transition"
                           onClick={async () => {

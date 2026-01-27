@@ -240,6 +240,24 @@ export default function CustomerPage() {
         </div>
       </div>
 
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold text-white">System requirements</h2>
+        <div className="glass-panel rounded-2xl p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <p className="text-base font-semibold text-slate-100">
+              For first-time users, it is recommended to install all dependencies using the Windows installer before performing the activity.
+            </p>
+            <a
+              href="/system-setup/system-setup.bat"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-true-white shadow-glow hover:opacity-90"
+              download
+            >
+              Download installer
+            </a>
+          </div>
+        </div>
+      </section>
+
       <section id="curriculum" className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold text-white">Activities</h2>
@@ -275,6 +293,7 @@ export default function CustomerPage() {
           ))}
         </div>
       </section>
+
     </main>
   );
 }
