@@ -11,6 +11,8 @@ type CurriculumRow = {
   asset_urls: unknown;
   price_yearly: number | null;
   published: boolean | null;
+  position: number | null;
+  created_at: string | null;
 };
 
 type ProductRow = {
@@ -31,6 +33,8 @@ const encodeStoragePath = (path: string) => path.split("/").map(encodeURICompone
 const isMissingGalleryColumn = (error: unknown) =>
   error instanceof Error && /gallery_urls/i.test(error.message) && /column/i.test(error.message);
 const isBadRequest = (error: unknown) => (error as { status?: number } | null)?.status === 400;
+const isMissingPositionColumn = (error: unknown) =>
+  error instanceof Error && /position/i.test(error.message) && /column/i.test(error.message);
 
 export const mapCurriculumRow = (row: CurriculumRow): CurriculumModule => {
   const assets = safeArray<CurriculumModule["assets"][number]>(row.asset_urls);
@@ -41,6 +45,7 @@ export const mapCurriculumRow = (row: CurriculumRow): CurriculumModule => {
     subject: row.subject,
     module: row.module,
     description: row.description ?? "",
+    position: row.position ?? undefined,
     assets,
     priceYearly: row.price_yearly ?? undefined,
   };
@@ -67,26 +72,70 @@ export const mapProductRow = (row: ProductRow): Product => {
 
 export async function fetchCurriculumModules(options?: { includeUnpublished?: boolean }) {
   const includeUnpublished = options?.includeUnpublished ?? false;
-  const query = supabase
-    .from("curriculum_modules")
-    .select("id,title,grade,subject,module,description,asset_urls,price_yearly,published,created_at")
-    .order("created_at", { ascending: false });
-  const { data, error } = includeUnpublished ? await query : await query.eq("published", true);
-  if (error) throw error;
-  return (data as CurriculumRow[]).map(mapCurriculumRow);
+  const buildQuery = (withPosition: boolean) =>
+    supabase
+      .from("curriculum_modules")
+      .select(
+        withPosition
+          ? "id,title,grade,subject,module,description,asset_urls,price_yearly,published,created_at,position"
+          : "id,title,grade,subject,module,description,asset_urls,price_yearly,published,created_at",
+      )
+      .order(withPosition ? "position" : "created_at", { ascending: withPosition, nullsFirst: false })
+      .order("created_at", { ascending: false });
+
+  const run = async (withPosition: boolean) => {
+    const query = buildQuery(withPosition);
+    const { data, error } = includeUnpublished ? await query : await query.eq("published", true);
+    if (error) throw error;
+    return (data as CurriculumRow[]).map(mapCurriculumRow);
+  };
+
+  try {
+    const rows = await run(true);
+    return rows.sort((a, b) => {
+      const pa = a.position ?? Number.MAX_SAFE_INTEGER;
+      const pb = b.position ?? Number.MAX_SAFE_INTEGER;
+      if (pa !== pb) return pa - pb;
+      return 0;
+    });
+  } catch (error) {
+    if (isMissingPositionColumn(error)) {
+      const rows = await run(false);
+      return rows;
+    }
+    throw error;
+  }
 }
 
 export async function fetchCurriculumModuleById(id: string, options?: { includeUnpublished?: boolean }) {
   const includeUnpublished = options?.includeUnpublished ?? false;
-  let query = supabase
-    .from("curriculum_modules")
-    .select("id,title,grade,subject,module,description,asset_urls,price_yearly,published,created_at")
-    .eq("id", id);
-  if (!includeUnpublished) query = query.eq("published", true);
-  const { data, error } = await query.maybeSingle();
-  if (error) throw error;
-  if (!data) return null;
-  return mapCurriculumRow(data as CurriculumRow);
+  const run = async (withPosition: boolean) => {
+    let query = supabase
+      .from("curriculum_modules")
+      .select(
+        withPosition
+          ? "id,title,grade,subject,module,description,asset_urls,price_yearly,published,created_at,position"
+          : "id,title,grade,subject,module,description,asset_urls,price_yearly,published,created_at",
+      )
+      .eq("id", id);
+    if (!includeUnpublished) query = query.eq("published", true);
+    const { data, error } = await query.maybeSingle();
+    if (error) throw error;
+    return data as CurriculumRow | null;
+  };
+
+  try {
+    const row = await run(true);
+    if (!row) return null;
+    return mapCurriculumRow(row);
+  } catch (error) {
+    if (isMissingPositionColumn(error)) {
+      const row = await run(false);
+      if (!row) return null;
+      return mapCurriculumRow(row);
+    }
+    throw error;
+  }
 }
 
 export async function fetchProducts() {

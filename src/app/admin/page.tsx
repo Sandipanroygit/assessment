@@ -66,6 +66,7 @@ export default function AdminPage() {
   const [editingCurriculumId, setEditingCurriculumId] = useState<string | null>(null);
   const curriculumEditRef = useRef<HTMLDivElement | null>(null);
   const [dataStatus, setDataStatus] = useState<string | null>(null);
+  const [orderStatus, setOrderStatus] = useState<string | null>(null);
   const [sentimentStatus, setSentimentStatus] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     name: "",
@@ -97,7 +98,23 @@ export default function AdminPage() {
     [curriculumRows.length, productRows.length, userRows.length],
   );
 
+  const persistOrder = async (ordered: CurriculumModule[]) => {
+    if (!ordered.length) return;
+    try {
+      setOrderStatus("Saving order...");
+      const payload = ordered.map((row, idx) => ({ id: row.id, position: idx + 1 }));
+      const { error } = await supabase.from("curriculum_modules").upsert(payload, { onConflict: "id" });
+      if (error) throw error;
+      setOrderStatus(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to save order";
+      const hint = /position/i.test(message) ? " (add integer column position to curriculum_modules)" : "";
+      setOrderStatus(`Order not saved: ${message}${hint}`);
+    }
+  };
+
   const reorderCurriculum = (sourceId: string, targetId: string) => {
+    let nextState: CurriculumModule[] | null = null;
     setCurriculumRows((prev) => {
       const from = prev.findIndex((item) => item.id === sourceId);
       const to = prev.findIndex((item) => item.id === targetId);
@@ -105,8 +122,12 @@ export default function AdminPage() {
       const next = [...prev];
       const [moved] = next.splice(from, 1);
       next.splice(to, 0, moved);
-      return next;
+      nextState = next.map((row, idx) => ({ ...row, position: idx + 1 }));
+      return nextState;
     });
+    if (nextState) {
+      void persistOrder(nextState);
+    }
   };
 
   const handleDragStart = (id: string) => setDraggingId(id);
@@ -291,6 +312,11 @@ export default function AdminPage() {
       {dataStatus && (
         <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
           {dataStatus}
+        </div>
+      )}
+      {orderStatus && (
+        <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
+          {orderStatus}
         </div>
       )}
       {authStatus && (
