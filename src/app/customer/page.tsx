@@ -248,7 +248,7 @@ export default function CustomerPage() {
               For first-time users, it is recommended to install all dependencies using the Windows installer before performing the activity.
             </p>
             <a
-              href="/system-setup/system-setup.bat"
+              href="https://1drv.ms/u/c/d5c868b4d9600368/IQCspO91wHTLQINVFln61jdhAaeVZC9a_i_Tl8Xd-bU4AW4?e=gqzZN6"
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-true-white shadow-glow hover:opacity-90"
               download
             >
@@ -297,6 +297,7 @@ export default function CustomerPage() {
     </main>
   );
 }
+
 
 
 
