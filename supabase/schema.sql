@@ -24,13 +24,10 @@ create table if not exists public.curriculum_modules (
   module text not null,
   description text,
   asset_urls jsonb default '[]',
-  position integer,
   price_yearly numeric,
   published boolean default true,
   created_at timestamp with time zone default now()
 );
-
-alter table public.curriculum_modules add column if not exists position integer;
 
 create table if not exists public.products (
   id uuid primary key default gen_random_uuid(),
