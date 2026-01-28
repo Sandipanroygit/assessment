@@ -1,7 +1,5 @@
 "use client";
 
-/* eslint-disable react/no-unescaped-entities */
-
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -510,11 +508,7 @@ export default function Home() {
         <div className="grid md:grid-cols-3 gap-6">
           {testimonials.map((item) => (
             <div key={item.name} className="glass-panel rounded-2xl p-6 space-y-3">
-              <p className="text-slate-300 text-sm leading-relaxed">
-                {"\u201c"}
-                {item.quote}
-                {"\u201d"}
-              </p>
+              <p className="text-slate-300 text-sm leading-relaxed">&ldquo;{item.quote}&rdquo;</p>
               <div className="pt-2 text-sm">
                 <p className="text-white font-semibold">{item.name}</p>
                 <p className="text-slate-400">{item.school}</p>
@@ -618,9 +612,7 @@ export default function Home() {
             <div className="space-y-2 text-sm text-slate-700">
               <div>
                 <p className="font-semibold text-foreground">How do I get a demo?</p>
-                <p>
-                  Use {"\u201c"}Talk to sales{"\u201d"} and we&apos;ll share a guided walkthrough.
-                </p>
+                <p>Use &ldquo;Talk to sales&rdquo; and we&apos;ll share a guided walkthrough.</p>
               </div>
             <div>
               <p className="font-semibold text-foreground">Can students self-learn?</p>
@@ -747,7 +739,7 @@ export default function Home() {
             </div>
             {contactSubmitted && (
               <div className="rounded-xl bg-accent/10 border border-accent/20 px-3 py-2 text-sm text-accent-strong">
-                {"Got it! We\u2019ll email you with next steps."}
+                Got it! We&apos;ll email you with next steps.
               </div>
             )}
             <div className="flex items-center justify-between">
