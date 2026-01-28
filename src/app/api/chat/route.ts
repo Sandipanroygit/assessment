@@ -118,6 +118,17 @@ const buildOptions = (correct: string, distractors: string[]) => {
   };
 };
 
+const pickApiKey = (headerKey: string | null) => {
+  const candidates = [
+    process.env.OPENAI_API_KEY,
+    headerKey,
+    process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+  ].filter(Boolean) as string[];
+  const isMasked = (key: string) => key.includes("*") || key.includes("•");
+  const looksValid = (key: string) => /^sk-[a-zA-Z0-9]{20,}/.test(key) && !isMasked(key);
+  return candidates.find(looksValid) ?? candidates.find((k) => !isMasked(k)) ?? null;
+};
+
 const buildQuizFallback = ({ message, contextText }: { message: string; contextText?: string }) => {
   const parsedContext = parseContext(contextText);
   const title = parsedContext.title || extractPromptValue(message, "Title") || "this activity";
@@ -287,7 +298,7 @@ export async function POST(req: Request) {
           ? JSON.stringify(context)
           : "";
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = pickApiKey(req.headers.get("x-openai-key"));
     if (!apiKey) {
       if (isQuizPrompt(message)) {
         return NextResponse.json({ reply: buildQuizFallback({ message, contextText }), fallback: true }, { status: 200 });
