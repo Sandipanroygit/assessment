@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, DragEvent } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import type { CurriculumModule, Product } from "@/types";
 import { useRouter } from "next/navigation";
