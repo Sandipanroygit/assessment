@@ -17,6 +17,8 @@ export default function CustomerPage() {
   const [modules, setModules] = useState<CurriculumModule[]>([]);
   const [signingOut, startSignOut] = useTransition();
   const [dataStatus, setDataStatus] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const [progressMap, setProgressMap] = useState<Record<string, { completed?: boolean; score?: number; total?: number; completedAt?: string }>>({});
 
   useEffect(() => {
@@ -97,7 +99,13 @@ export default function CustomerPage() {
     const loadProfile = async () => {
       const { data } = await supabase.auth.getUser();
       const user = data.user;
-      if (!user) return;
+      if (!user) {
+        setIsAuthenticated(false);
+        setAuthChecked(true);
+        router.replace("/login");
+        return;
+      }
+      setIsAuthenticated(true);
       const { data: profileData } = await supabase
         .from("profiles")
         .select("full_name, role, grade")
@@ -112,6 +120,8 @@ export default function CustomerPage() {
         setUserGrade(gradeFromMeta);
       }
 
+      setAuthChecked(true);
+
       // If an admin somehow lands here, redirect to the admin control room.
       if (derivedRole === "admin") {
         router.replace("/admin");
@@ -121,6 +131,7 @@ export default function CustomerPage() {
   }, [router]);
 
   useEffect(() => {
+    if (!authChecked || !isAuthenticated) return;
     let cancelled = false;
 
     const loadCurriculum = async () => {
@@ -141,7 +152,7 @@ export default function CustomerPage() {
     return () => {
       cancelled = true;
     };
-  }, [enhanceModule]);
+  }, [authChecked, isAuthenticated, enhanceModule]);
 
   const gradeOptions = useMemo(() => {
     if (userGrade) return [userGrade];

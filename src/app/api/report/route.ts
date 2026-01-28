@@ -10,6 +10,12 @@ type ReportPayload = {
   logText?: string;
   plotType?: string;
   plotImageDataUrl?: string | null;
+  accuracyHint?: number;
+};
+
+const clampAccuracy = (value?: number) => {
+  if (typeof value !== "number" || Number.isNaN(value)) return undefined;
+  return Math.min(100, Math.max(0, Math.round(value)));
 };
 
 const hasInversePressureTrend = (payload: ReportPayload) => {
@@ -20,28 +26,58 @@ const hasInversePressureTrend = (payload: ReportPayload) => {
 const buildFallbackReport = (payload: ReportPayload) => {
   const title = payload.title || "Activity";
   const inversePressureTrend = hasInversePressureTrend(payload);
+  const accuracy = clampAccuracy(payload.accuracyHint);
+  const high = typeof accuracy === "number" && accuracy >= 90;
+  const mid = typeof accuracy === "number" && accuracy >= 75;
+  const accuracyPercent = accuracy ?? (inversePressureTrend ? 78 : 72);
+
   return {
-    summary: `The submission for "${title}" was received. Review the trend against the expected behavior from the SOP.`,
-    objectiveAlignment:
-      "The submission appears to follow the intended steps, but confirm alignment with the objective and safety checks in the SOP.",
-    trendAssessment:
-      "Trend review requires visual confirmation. Compare the curve shape and inflection points against the expected trend.",
-    accuracyPercent: 70,
-    possibleErrors: [
-      "Sensor noise or calibration drift",
-      "Incorrect sampling interval",
-      "Incomplete warm-up or stabilization period",
-    ],
-    improvementTips: [
-      "Repeat the trial with a steady setup and consistent timing.",
-      "Cross-check calculations in the log before plotting.",
-    ],
+    summary: high
+      ? `Great work! Your submission for "${title}" aligns with the expected trend - keep it up.`
+      : mid
+      ? `Submission for "${title}" is mostly aligned. Tighten up minor deviations and confirm against the SOP.`
+      : `Submission for "${title}" needs attention. Compare your plot and log to the expected trend and retry if needed.`,
+    objectiveAlignment: high
+      ? "Objective met; steps appear followed correctly."
+      : mid
+      ? "Objective mostly met; double-check safety checks and timing."
+      : "Objective not fully met; follow each SOP step carefully on the next attempt.",
+    trendAssessment: high
+      ? "Trend matches the expected shape with minimal deviation."
+      : mid
+      ? "Trend is close to expected, with small offsets or slope differences."
+      : "Trend differs from expected; recalibrate and rerun the trial.",
+    accuracyPercent,
+    possibleErrors: high
+      ? ["No obvious errors detected from your upload."]
+      : [
+          "Sensor noise or calibration drift",
+          "Incorrect sampling interval",
+          "Incomplete warm-up or stabilization period",
+        ],
+    improvementTips: high
+      ? ["Nice work - add brief notes about your setup to document this run."]
+      : [
+          "Repeat the trial with a steady setup and consistent timing.",
+          "Cross-check calculations in the log before plotting.",
+          "Re-run the activity following each SOP step carefully.",
+        ],
     logInsights: payload.logText
-      ? ["Log excerpt reviewed for anomalies and unexpected spikes."]
+      ? [
+          high
+            ? "Log values look stable and match the expected pattern."
+            : mid
+            ? "Log shows small deviations; verify any spikes or gaps."
+            : "Log shows deviations; check for spikes, gaps, or incorrect units before retrying.",
+        ]
       : ["No log excerpt provided."],
     overlay: {
       note: inversePressureTrend
-        ? "Expected trend: pressure decreases as height increases."
+        ? high
+          ? "Expected trend: pressure decreases as height increases. Your data appears to follow this."
+          : "Expected trend: pressure decreases as height increases."
+        : high
+        ? "Expected trend overlay; your points appear to align."
         : "Expected trend overlay is a generic guide. Adjust based on the SOP objective.",
       points: inversePressureTrend
         ? [
@@ -68,6 +104,7 @@ const buildPrompt = (payload: ReportPayload) => {
   const logExcerpt = payload.logText?.slice(0, 3000) ?? "";
   const codeExcerpt = payload.codeText?.slice(0, 2000) ?? "";
   const inversePressureTrend = hasInversePressureTrend(payload);
+  const accuracy = clampAccuracy(payload.accuracyHint);
   return [
     "You are an academic evaluator for a student lab activity.",
     "Analyze the student's log + graph against the expected trend in the SOP and activity description.",
@@ -80,6 +117,9 @@ const buildPrompt = (payload: ReportPayload) => {
       ? "Expected trend: as height increases, pressure decreases. Reflect this inverse relationship in overlay points."
       : null,
     "Accuracy percent should reflect similarity to the expected trend.",
+    "Use the accuracy hint: if >= 90, praise and avoid listing errors (possibleErrors should state none). If < 90, include likely issues and encourage a retry when needed.",
+    "Keep feedback concise and specific; avoid generic boilerplate.",
+    accuracy !== undefined ? `Accuracy hint (0-100): ${accuracy}` : "Accuracy hint: (not provided)",
     "Be specific and student-friendly; suggest likely sources of error.",
     "",
     `Title: ${payload.title ?? ""}`,

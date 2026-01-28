@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
@@ -324,8 +325,22 @@ const writeLocalSubmissionHistory = (moduleId: string, submissions: ActivitySubm
   }
 };
 
+const triggerDownload = (url: string, fileName: string) => {
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.rel = "noopener noreferrer";
+  anchor.style.display = "none";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+};
+
 export default function ActivityPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const [module, setModule] = useState<CurriculumModule | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [codeDisplay, setCodeDisplay] = useState("Loading code...");
@@ -358,27 +373,28 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
   const [pdfLogoSrc, setPdfLogoSrc] = useState<string | null>(null);
   const [pdfStatus, setPdfStatus] = useState<string | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [sopUploading, setSopUploading] = useState(false);
 
-  const computedAccuracy = useMemo(() => {
-    if (logPlotPoints.length < 2) return null;
-    const sorted = [...logPlotPoints].sort((a, b) => a.x - b.x);
+  const computeAccuracy = (points: PlotPoint[]) => {
+    if (points.length < 2) return null;
+    const sorted = [...points].sort((a, b) => a.x - b.x);
     const start = sorted[0];
     const end = sorted[sorted.length - 1];
     const spanX = end.x - start.x;
-    const minY = Math.min(...logPlotPoints.map((p) => p.y));
-    const maxY = Math.max(...logPlotPoints.map((p) => p.y));
+    const minY = Math.min(...points.map((p) => p.y));
+    const maxY = Math.max(...points.map((p) => p.y));
     const spanY = maxY - minY;
     if (!Number.isFinite(spanX) || !Number.isFinite(spanY) || spanX === 0 || spanY === 0) {
       return null;
     }
     const slope = (end.y - start.y) / spanX;
     const expectedAt = (x: number) => start.y + slope * (x - start.x);
-    const avgError =
-      logPlotPoints.reduce((acc, point) => acc + Math.abs(point.y - expectedAt(point.x)), 0) / logPlotPoints.length;
+    const avgError = points.reduce((acc, point) => acc + Math.abs(point.y - expectedAt(point.x)), 0) / points.length;
     const normalized = avgError / spanY;
-    const accuracy = clamp(100 - normalized * 100, 0, 100);
-    return accuracy;
-  }, [logPlotPoints]);
+    return clamp(100 - normalized * 100, 0, 100);
+  };
+
+  const computedAccuracy = useMemo(() => computeAccuracy(logPlotPoints), [logPlotPoints]);
 
   const nextSubmissionNumber = useMemo(
     () => (submissions[submissions.length - 1]?.submissionNumber ?? 0) + 1,
@@ -677,6 +693,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
   }, []);
 
   useEffect(() => {
+    if (!authChecked || !isAuthenticated) return;
     let cancelled = false;
     const load = async () => {
       try {
@@ -698,7 +715,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [authChecked, isAuthenticated, id]);
 
   useEffect(() => {
     if (!module) return;
@@ -720,16 +737,28 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
       try {
         const { data } = await supabase.auth.getUser();
         const user = data.user;
-        if (!user) return;
+        if (!user) {
+          setIsAuthenticated(false);
+          setAuthChecked(true);
+          setStatus("Redirecting to login...");
+          router.replace("/login");
+          return;
+        }
+        setIsAuthenticated(true);
+        setAuthChecked(true);
         setUserId(user.id);
         const profile = await ensureProfile(user);
         setStudentName(profile?.full_name ?? user.user_metadata.full_name ?? user.email ?? "Student");
       } catch {
+        setIsAuthenticated(false);
+        setAuthChecked(true);
         setUserId(null);
+        setStatus("Redirecting to login...");
+        router.replace("/login");
       }
     };
     loadProfile();
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     let cancelled = false;
@@ -839,20 +868,26 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     void loadSubmissions();
   }, [loadSubmissions]);
 
-  const downloadCode = async () => {
+  const openCodeInEditor = async () => {
     if (!module) return;
     const ensurePyExtension = (name: string) => (name.toLowerCase().endsWith(".py") ? name : `${name}.py`);
     const fallbackName = ensurePyExtension(module.title.replace(/\s+/g, "-").toLowerCase() || "code");
-    if (module.codeSnippet) {
-      const blob = new Blob([module.codeSnippet], { type: "text/plain" });
+    const nav = navigator as Navigator & { msSaveOrOpenBlob?: (blob: Blob, defaultName?: string) => boolean };
+    const launchBlob = (blob: Blob, fileName: string) => {
+      if (nav?.msSaveOrOpenBlob) {
+        nav.msSaveOrOpenBlob(blob, fileName);
+        return;
+      }
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fallbackName;
-      a.click();
-      URL.revokeObjectURL(url);
+      triggerDownload(url, fileName);
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    };
+
+    if (module.codeSnippet) {
+      launchBlob(new Blob([module.codeSnippet], { type: "text/x-python" }), fallbackName);
       return;
     }
+
     const codeAsset = module.assets.find((a) => a.type === "code");
     if (codeAsset?.url) {
       const fileName = ensurePyExtension(codeAsset.label || fallbackName);
@@ -860,33 +895,50 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
         const res = await fetch(codeAsset.url);
         if (!res.ok) throw new Error("Failed to fetch code file.");
         const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = fileName;
-        a.click();
-        URL.revokeObjectURL(url);
-      } catch {
-        const a = document.createElement("a");
-        a.href = codeAsset.url;
-        a.download = fileName;
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        a.click();
+        launchBlob(blob, fileName);
+      } catch (err) {
+        console.warn("Unable to fetch code blob; downloading file directly.", err);
+        triggerDownload(codeAsset.url, fileName);
       }
+      return;
     }
+
+    console.warn("No code file available to open in editor.");
   };
 
-  const downloadDoc = async () => {
+  const openDocInViewer = async () => {
     if (!module) return;
     const docAsset = module.assets.find((a) => a.type === "doc");
     if (docAsset?.url) {
-      const a = document.createElement("a");
-      a.href = docAsset.url;
-      a.download = docAsset.label || "document";
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      a.click();
+      const nav = navigator as Navigator & { msSaveOrOpenBlob?: (blob: Blob, defaultName?: string) => boolean };
+      const fileName = (docAsset.label || "document").trim() || "document";
+      const triggerDownload = (url: string, name: string) => {
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = name;
+        anchor.rel = "noopener noreferrer";
+        anchor.style.display = "none";
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+      };
+      try {
+        const res = await fetch(docAsset.url);
+        if (!res.ok) throw new Error("Failed to fetch doc file.");
+        const blob = await res.blob();
+        if (nav?.msSaveOrOpenBlob) {
+          nav.msSaveOrOpenBlob(blob, fileName);
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        triggerDownload(url, fileName);
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+      } catch (err) {
+        console.warn("Unable to fetch doc blob; downloading file directly.", err);
+        triggerDownload(docAsset.url, fileName);
+      }
+    } else {
+      console.warn("No SOP file available to open.");
     }
   };
 
@@ -951,6 +1003,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
       try {
         const logText = await source.log.text();
         const parsedPoints = parseLogPoints(logText, codeDisplay, source.plot.type || source.plot.name || "");
+        const accuracyHint = computeAccuracy(parsedPoints);
         setLogPlotPoints(parsedPoints);
         const sopAsset = module.assets.find((a) => a.type === "doc");
         const res = await fetch("/api/report", {
@@ -965,6 +1018,7 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
             sopUrl: sopAsset?.url,
             logText,
             plotType: source.plot.type || source.plot.name,
+            accuracyHint: typeof accuracyHint === "number" ? accuracyHint : undefined,
           }),
         });
         const data = await res.json();
@@ -974,11 +1028,13 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
         usedFallback = Boolean(data?.fallback);
         nextReport = data.report as AiReport;
         setReport(nextReport);
-        setReportStatus(usedFallback ? "AI unavailable; showing fallback report." : null);
+        setReportStatus(usedFallback ? "AI unavailable; showing best-effort feedback from your upload." : null);
         setPdfStatus(null);
       } catch {
         setReportStatus(
-          usedFallback ? "AI unavailable right now. Showing fallback guidance only." : "Unable to generate AI report right now.",
+          usedFallback
+            ? "AI unavailable right now. Showing best-effort guidance from your files."
+            : "Unable to generate AI report right now.",
         );
         if (!nextReport) {
           setReport(null);
@@ -1238,11 +1294,12 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
-                    className="text-xs text-accent-strong underline disabled:text-accent-strong/40 disabled:opacity-70"
-                    onClick={downloadCode}
+                    className="px-3 py-2 rounded-lg bg-emerald-500 text-true-white text-sm font-semibold shadow-glow disabled:opacity-40 disabled:bg-emerald-500/60"
+                    onClick={openCodeInEditor}
                     disabled={!module.codeSnippet && !module.assets.find((a) => a.type === "code")}
+                    title="Open in your default editor (e.g. VS Code)"
                   >
-                    Download
+                    Run
                   </button>
                   <button
                     type="button"
@@ -1269,7 +1326,13 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
                   <p className="text-xs text-slate-400">{module.assets.find((a) => a.type === "doc")?.label || "Document"}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <button type="button" className="text-xs text-slate-900 underline" onClick={downloadDoc}>
+                  <button
+                    type="button"
+                    className="px-3 py-2 rounded-lg bg-emerald-500 text-true-white text-sm font-semibold shadow-glow disabled:opacity-40 disabled:bg-emerald-500/60"
+                    onClick={openDocInViewer}
+                    disabled={!module.assets.find((a) => a.type === "doc")}
+                    title="Open in your default viewer"
+                  >
                     Download
                   </button>
                   <button
