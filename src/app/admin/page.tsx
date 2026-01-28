@@ -1,5 +1,7 @@
 ﻿"use client";
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { supabase } from "@/lib/supabaseClient";
