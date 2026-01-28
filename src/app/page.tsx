@@ -137,9 +137,13 @@ export default function Home() {
 
   useEffect(() => {
     let active = true;
+
     const refreshCount = async () => {
       try {
-        const res = await fetch("/api/footfall?page=home", { cache: "no-store" });
+        const res = await fetch("/api/footfall?page=home", {
+          cache: "no-store",
+          next: { revalidate: 0 },
+        });
         if (!res.ok) throw new Error("Failed to fetch footfall.");
         const data = (await res.json()) as { count?: number };
         if (active && typeof data.count === "number") setFootfall(data.count);
@@ -147,12 +151,15 @@ export default function Home() {
         // ignore count errors
       }
     };
+
     const trackAndLoad = async () => {
       try {
         const res = await fetch("/api/footfall", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ page: "home" }),
+          cache: "no-store",
+          next: { revalidate: 0 },
         });
         if (res.ok) {
           const data = (await res.json()) as { count?: number };
@@ -166,6 +173,7 @@ export default function Home() {
       }
       await refreshCount();
     };
+
     trackAndLoad();
     const interval = window.setInterval(refreshCount, 30000);
     return () => {
@@ -484,7 +492,7 @@ export default function Home() {
           {features.map((feature) => (
             <div key={feature.title} className="glass-panel rounded-2xl p-6 space-y-3">
               <div className="h-10 w-10 rounded-xl bg-accent/10 border border-accent/20 grid place-items-center text-accent-strong">
-                ✦
+                ƒoÝ
               </div>
               <h3 className="text-lg font-semibold text-white">{feature.title}</h3>
               <p className="text-slate-300 text-sm">{feature.description}</p>
@@ -499,14 +507,11 @@ export default function Home() {
             <p className="text-accent-strong uppercase text-xs tracking-[0.2em]">Testimonials</p>
             <h2 className="text-3xl font-semibold text-white">Schools seeing results</h2>
           </div>
-          <Link href="/customer" className="text-sm text-slate-300 hover:text-white underline">
-            Explore modules
-          </Link>
         </div>
         <div className="grid md:grid-cols-3 gap-6">
           {testimonials.map((item) => (
             <div key={item.name} className="glass-panel rounded-2xl p-6 space-y-3">
-              <p className="text-slate-300 text-sm leading-relaxed">“{item.quote}”</p>
+              <p className="text-slate-300 text-sm leading-relaxed">ƒ?o{item.quote}ƒ??</p>
               <div className="pt-2 text-sm">
                 <p className="text-white font-semibold">{item.name}</p>
                 <p className="text-slate-400">{item.school}</p>
