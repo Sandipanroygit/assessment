@@ -492,7 +492,7 @@ export default function Home() {
           {features.map((feature) => (
             <div key={feature.title} className="glass-panel rounded-2xl p-6 space-y-3">
               <div className="h-10 w-10 rounded-xl bg-accent/10 border border-accent/20 grid place-items-center text-accent-strong">
-                ƒoÝ
+                *
               </div>
               <h3 className="text-lg font-semibold text-white">{feature.title}</h3>
               <p className="text-slate-300 text-sm">{feature.description}</p>
@@ -511,7 +511,7 @@ export default function Home() {
         <div className="grid md:grid-cols-3 gap-6">
           {testimonials.map((item) => (
             <div key={item.name} className="glass-panel rounded-2xl p-6 space-y-3">
-              <p className="text-slate-300 text-sm leading-relaxed">ƒ?o{item.quote}ƒ??</p>
+              <p className="text-slate-300 text-sm leading-relaxed">"{item.quote}"</p>
               <div className="pt-2 text-sm">
                 <p className="text-white font-semibold">{item.name}</p>
                 <p className="text-slate-400">{item.school}</p>
