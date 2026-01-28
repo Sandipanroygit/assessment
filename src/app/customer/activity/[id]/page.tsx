@@ -14,6 +14,7 @@ const progressStorageKey = "activityProgress";
 const submissionsBucket = "curriculum-assets";
 const submissionPathPrefix = "activity-submissions";
 const submissionHistoryKey = "activitySubmissionHistory";
+const submissionHideKey = "activitySubmissionHide";
 
 type UploadMeta = { name: string; size: number; type: string };
 type ActivityProgressEntry = {
@@ -33,7 +34,7 @@ type AiReport = {
   summary: string;
   objectiveAlignment: string;
   trendAssessment: string;
-  accuracyPercent: number;
+  accuracyPercent: number | null;
   possibleErrors: string[];
   improvementTips: string[];
   logInsights: string[] | string;
@@ -162,9 +163,10 @@ const buildReportHtml = ({
     ["Log file", logFileName || "-"],
     ["Plot file", plotFileName || "-"],
   ];
-  const accuracyValue = typeof accuracyOverride === "number" ? accuracyOverride : report.accuracyPercent;
+  const rawAccuracy = typeof accuracyOverride === "number" ? accuracyOverride : report.accuracyPercent;
+  const accuracyValue = typeof rawAccuracy === "number" && Number.isFinite(rawAccuracy) ? Math.round(rawAccuracy) : null;
   const metricRows = [
-    ["Accuracy", `${Math.round(accuracyValue)}%`],
+    ["Accuracy", accuracyValue === null ? "Not enough data" : `${accuracyValue}%`],
     ["Objective alignment", report.objectiveAlignment || "-"],
     ["Trend assessment", report.trendAssessment || "-"],
   ];
@@ -325,6 +327,27 @@ const writeLocalSubmissionHistory = (moduleId: string, submissions: ActivitySubm
   }
 };
 
+const readHiddenSubmissions = (moduleId: string): string[] => {
+  try {
+    const stored = localStorage.getItem(submissionHideKey);
+    const parsed = stored ? JSON.parse(stored) : {};
+    return Array.isArray(parsed[moduleId]) ? (parsed[moduleId] as string[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeHiddenSubmissions = (moduleId: string, ids: string[]) => {
+  try {
+    const stored = localStorage.getItem(submissionHideKey);
+    const parsed = stored ? JSON.parse(stored) : {};
+    parsed[moduleId] = Array.from(new Set(ids));
+    localStorage.setItem(submissionHideKey, JSON.stringify(parsed));
+  } catch {
+    // ignore storage failures
+  }
+};
+
 const triggerDownload = (url: string, fileName: string) => {
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -375,6 +398,24 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [sopUploading, setSopUploading] = useState(false);
 
+  const applyQuizQuestions = (
+    questions: Array<{
+      question: string;
+      options: Array<{ label: string; text: string }>;
+      answer: string;
+      explanation?: string;
+    }>,
+  ) => {
+    if (!questions.length) return false;
+    setQuizQuestions(questions);
+    setCurrentQuestion(0);
+    setSelections({});
+    setQuizComplete(false);
+    setTimeLeft(300);
+    setQuizStatus(null);
+    return true;
+  };
+
   const computeAccuracy = (points: PlotPoint[]) => {
     if (points.length < 2) return null;
     const sorted = [...points].sort((a, b) => a.x - b.x);
@@ -405,14 +446,13 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     if (!module) return;
     setGeneratingQuiz(true);
     setQuizStatus("Loading questions from this activity...");
-    try {
+
+    const loadFromQuestionBank = async () => {
       const gradeSegment = sanitizeSegment(module.grade);
       const moduleSegments = Array.from(
         new Set([sanitizeSegment(module.module || module.title), sanitizeSegment(module.title), sanitizeSegment(module.module || "")].filter(Boolean)),
       );
       const bucket = supabase.storage.from("curriculum-assets");
-      let filePath: string | null = null;
-
       for (const moduleSegment of moduleSegments) {
         const prefix = `question-banks/${gradeSegment}/${moduleSegment}`;
         const { data: listed, error } = await bucket.list(prefix, {
@@ -424,39 +464,61 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
         const candidates = listed
           .filter((item) => item.name.toLowerCase().endsWith(".json"))
           .sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || "") || b.name.localeCompare(a.name));
-        if (candidates.length === 0) continue;
-        filePath = `${prefix}/${candidates[0].name}`;
-        break;
-      }
+        if (!candidates.length) continue;
 
-      if (!filePath) {
-        setQuizStatus("Questions unavailable right now.");
-        setGeneratingQuiz(false);
-        return;
+        const filePath = `${prefix}/${candidates[0].name}`;
+        const { data: urlData } = bucket.getPublicUrl(filePath);
+        const res = await fetch(urlData.publicUrl);
+        if (!res.ok) continue;
+        const payload = await res.text();
+        const parsed = parseQuestionBankPayload(payload);
+        if (parsed.length) return parsed;
       }
+      return [] as typeof quizQuestions;
+    };
 
-      const { data: urlData } = bucket.getPublicUrl(filePath);
-      const res = await fetch(urlData.publicUrl);
-      if (!res.ok) {
-        setQuizStatus("Questions unavailable right now.");
-        setGeneratingQuiz(false);
-        return;
+    const generateAiQuiz = async () => {
+      setQuizStatus("Generating fresh questions for this activity...");
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message:
+              `Create 5 multiple-choice questions (A-D) with answers and short explanations for "${module.title}". `
+              + "Return in the format: Q1. question\\nA) option\\nB) option\\nC) option\\nD) option\\nAnswer: A\\nExplanation: ...",
+            context: {
+              title: module.title,
+              subject: module.subject,
+              grade: module.grade,
+              description: module.description,
+              code: codeDisplay,
+            },
+          }),
+        });
+        if (!res.ok) return [] as typeof quizQuestions;
+        const data = (await res.json()) as { reply?: string };
+        const reply = (data?.reply || "").trim();
+        if (!reply) return [] as typeof quizQuestions;
+        const parsed = parseQuiz(reply);
+        return parsed.length ? parsed : ([] as typeof quizQuestions);
+      } catch (err) {
+        console.error("AI quiz generation failed", err);
+        return [] as typeof quizQuestions;
       }
-      const payload = await res.text();
-      const parsed = parseQuestionBankPayload(payload);
-      if (parsed.length > 0) {
-        setQuizQuestions(parsed);
-        setCurrentQuestion(0);
-        setSelections({});
-        setQuizComplete(false);
-        setTimeLeft(300);
-        setQuizStatus(null);
-      } else {
-        setQuizStatus("Questions unavailable right now.");
-      }
+    };
+
+    try {
+      const bankQuestions = await loadFromQuestionBank();
+      if (applyQuizQuestions(bankQuestions)) return;
+
+      const aiQuestions = await generateAiQuiz();
+      if (applyQuizQuestions(aiQuestions)) return;
+
+      setQuizStatus("Unable to generate quiz right now. Please try again in a bit.");
     } catch (err) {
-      console.error("Question bank load failed", err);
-      setQuizStatus("Questions unavailable right now.");
+      console.error("Quiz generation failed", err);
+      setQuizStatus("Unable to generate quiz right now. Please try again in a bit.");
     } finally {
       setGeneratingQuiz(false);
     }
@@ -850,6 +912,10 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
       if (!mapped.length) {
         mapped = readLocalSubmissionHistory(module.id);
       }
+      const hidden = readHiddenSubmissions(module.id);
+      if (hidden.length) {
+        mapped = mapped.filter((item) => !hidden.includes(item.id));
+      }
       setSubmissions(mapped);
       if (mapped.length) {
         const latest = mapped[mapped.length - 1];
@@ -997,7 +1063,6 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     async (source: { log: File; plot: File }) => {
       if (!module) return null;
       let nextReport: AiReport | null = null;
-      let usedFallback = false;
       setReportLoading(true);
       setReportStatus("Generating AI report...");
       try {
@@ -1018,24 +1083,28 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
             sopUrl: sopAsset?.url,
             logText,
             plotType: source.plot.type || source.plot.name,
+            parsedPoints: parsedPoints.slice(0, 500),
             accuracyHint: typeof accuracyHint === "number" ? accuracyHint : undefined,
           }),
         });
         const data = await res.json();
         if (!res.ok || !data?.report) {
-          throw new Error("AI report unavailable.");
+          const detail = (data as { detail?: string; error?: string })?.detail ?? (data as { error?: string })?.error;
+          throw new Error(detail || "AI report unavailable.");
         }
-        usedFallback = Boolean(data?.fallback);
         nextReport = data.report as AiReport;
         setReport(nextReport);
-        setReportStatus(usedFallback ? "AI unavailable; showing best-effort feedback from your upload." : null);
-        setPdfStatus(null);
-      } catch {
         setReportStatus(
-          usedFallback
-            ? "AI unavailable right now. Showing best-effort guidance from your files."
-            : "Unable to generate AI report right now.",
+          data?.fallback
+            ? (data as { detail?: string })?.detail
+              ? `AI offline; showing heuristic analysis. Detail: ${(data as { detail?: string }).detail}`
+              : "AI offline; showing heuristic analysis."
+            : null,
         );
+        setPdfStatus(null);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unable to generate AI report right now.";
+        setReportStatus(message);
         if (!nextReport) {
           setReport(null);
         }
@@ -1084,6 +1153,18 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     }
   }, [module, report, pdfLogoSrc, studentName, storedUploads, logFile, plotFile, computedAccuracy]);
 
+  const formatError = (err: unknown) => {
+    if (err instanceof Error) return err.message;
+    if (err && typeof err === "object" && "message" in err && typeof (err as { message?: unknown }).message === "string") {
+      return (err as { message: string }).message;
+    }
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return String(err ?? "Unknown error");
+    }
+  };
+
   const deleteSubmission = async (submissionId: string) => {
     if (!userId) {
       setUploadStatus("Sign in to delete a submission.");
@@ -1092,15 +1173,35 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
     const submission = submissions.find((item) => item.id === submissionId);
     if (!submission) return;
     setSavingUploads(true);
-      setUploadStatus("Deleting submission...");
+    setUploadStatus("Deleting submission...");
+    let serverDeleted = false;
     try {
       if (!submission.id.startsWith("local-")) {
-        const { error } = await supabase
+        const attemptDelete = async (query: ReturnType<typeof supabase.from>) => {
+          const { data, error } = await query.select("id");
+          if (error) throw error;
+          return (Array.isArray(data) ? data.length : 0) ?? 0;
+        };
+
+        let deleteQuery = supabase
           .from("activity_submissions")
           .delete()
           .eq("id", submissionId)
           .eq("user_id", userId);
-        if (error) throw error;
+        if (module?.id) {
+          deleteQuery = deleteQuery.eq("module_id", module.id);
+        }
+
+        let deletedCount = await attemptDelete(deleteQuery);
+        if (deletedCount === 0 && module?.id) {
+          // Fallback without module filter in case the stored row lacks module_id
+          deletedCount = await attemptDelete(
+            supabase.from("activity_submissions").delete().eq("id", submissionId).eq("user_id", userId),
+          );
+        }
+
+        if (deletedCount === 0) throw new Error("Delete blocked (no matching submission)");
+        serverDeleted = true;
         const byBucket = bucketPathsFromUrls([submission.logUrl, submission.plotUrl]);
         await Promise.all(
           Object.entries(byBucket).map(async ([bucket, paths]) => {
@@ -1113,27 +1214,58 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
           }),
         );
       }
-      const remaining = submissions.filter((item) => item.id !== submissionId);
-      setSubmissions(remaining);
-      if (module) writeLocalSubmissionHistory(module.id, remaining);
-      const nextActive = remaining[remaining.length - 1] ?? null;
-      setSelectedSubmissionId(nextActive?.id ?? null);
-      setMarkedDone(Boolean(nextActive));
-      if (!nextActive) {
-        setReport(null);
-        setReportStatus(null);
-        setStoredUploads(null);
-        setLogPlotPoints([]);
-      } else {
-        setStoredUploads({
-          logFile: nextActive.logName ? { name: nextActive.logName, size: 0, type: "" } : undefined,
-          plotFile: nextActive.plotName ? { name: nextActive.plotName, size: 0, type: "" } : undefined,
-          uploadedAt: nextActive.createdAt,
-        });
-      }
-      setUploadStatus("Submission deleted.");
-    } catch {
-      setUploadStatus("Unable to delete this submission right now.");
+      setSubmissions((prev) => {
+        const remaining = prev.filter((item) => item.id !== submissionId);
+        if (module) {
+          writeLocalSubmissionHistory(module.id, remaining);
+          writeHiddenSubmissions(module.id, readHiddenSubmissions(module.id).filter((id) => id !== submissionId));
+        }
+        const nextActive = remaining[remaining.length - 1] ?? null;
+        setSelectedSubmissionId(nextActive?.id ?? null);
+        setMarkedDone(Boolean(nextActive));
+        if (!nextActive) {
+          setReport(null);
+          setReportStatus(null);
+          setStoredUploads(null);
+          setLogPlotPoints([]);
+        } else {
+          setStoredUploads({
+            logFile: nextActive.logName ? { name: nextActive.logName, size: 0, type: "" } : undefined,
+            plotFile: nextActive.plotName ? { name: nextActive.plotName, size: 0, type: "" } : undefined,
+            uploadedAt: nextActive.createdAt,
+          });
+        }
+        return remaining;
+      });
+      setUploadStatus(serverDeleted ? "Submission deleted." : "Removed locally; server delete failed.");
+    } catch (err) {
+      const message = formatError(err);
+      // Hide locally so it doesn't reappear after refresh; surface message for transparency
+      setSubmissions((prev) => {
+        const remaining = prev.filter((item) => item.id !== submissionId);
+        if (module) {
+          const hidden = readHiddenSubmissions(module.id);
+          writeHiddenSubmissions(module.id, [...hidden, submissionId]);
+          writeLocalSubmissionHistory(module.id, remaining);
+        }
+        const nextActive = remaining[remaining.length - 1] ?? null;
+        setSelectedSubmissionId(nextActive?.id ?? null);
+        setMarkedDone(Boolean(nextActive));
+        if (!nextActive) {
+          setReport(null);
+          setReportStatus(null);
+          setStoredUploads(null);
+          setLogPlotPoints([]);
+        } else {
+          setStoredUploads({
+            logFile: nextActive.logName ? { name: nextActive.logName, size: 0, type: "" } : undefined,
+            plotFile: nextActive.plotName ? { name: nextActive.plotName, size: 0, type: "" } : undefined,
+            uploadedAt: nextActive.createdAt,
+          });
+        }
+        return remaining;
+      });
+      setUploadStatus(`Removed locally; could not delete on server: ${message}`);
     } finally {
       setSavingUploads(false);
     }
@@ -1531,7 +1663,12 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
                 <div className="grid gap-3 md:grid-cols-3">
                   <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                     <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Accuracy</p>
-                    <p className="text-2xl font-semibold text-white">{Math.round(computedAccuracy ?? report.accuracyPercent)}%</p>
+                    <p className="text-2xl font-semibold text-white">
+                      {(() => {
+                        const value = computedAccuracy ?? report.accuracyPercent;
+                        return typeof value === "number" && Number.isFinite(value) ? `${Math.round(value)}%` : "N/A";
+                      })()}
+                    </p>
                   </div>
                   <div className="rounded-xl border border-white/10 bg-white/5 p-3 md:col-span-2">
                     <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Summary</p>

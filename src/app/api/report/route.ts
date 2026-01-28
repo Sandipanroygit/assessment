@@ -1,4 +1,38 @@
 import { NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
+
+// Lightweight .env.local loader for local dev when env injection fails (avoids adding dependencies).
+// Note: Next dev already loads .env.local, but on some setups the app route can miss it.
+// We only fall back to reading the file when the key is absent to avoid overriding a valid injected env.
+const ensureLocalEnv = () => {
+  if (process.env.OPENAI_API_KEY) return;
+  const envPath = path.join(process.cwd(), ".env.local");
+  try {
+    const raw = fs.readFileSync(envPath, "utf8");
+    raw
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith("#"))
+      .forEach((line) => {
+        const idx = line.indexOf("=");
+        if (idx === -1) return;
+        const key = line.slice(0, idx).trim();
+        const val = line.slice(idx + 1).trim();
+        if (key === "OPENAI_API_KEY" && val) {
+          process.env.OPENAI_API_KEY = val;
+        }
+      });
+  } catch {
+    // ignore if file missing
+  }
+};
+
+ensureLocalEnv();
+
+// Ensure this route runs in the Node.js runtime (secrets available, no edge caching).
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type ReportPayload = {
   title?: string;
@@ -11,11 +45,51 @@ type ReportPayload = {
   plotType?: string;
   plotImageDataUrl?: string | null;
   accuracyHint?: number;
+  parsedPoints?: Array<{ x: number; y: number }>;
 };
 
 const clampAccuracy = (value?: number) => {
   if (typeof value !== "number" || Number.isNaN(value)) return undefined;
   return Math.min(100, Math.max(0, Math.round(value)));
+};
+
+const normalizePoints = (points: Array<{ x: number; y: number }>) => {
+  if (!points.length) return [] as Array<{ x: number; y: number }>;
+  const minX = Math.min(...points.map((p) => p.x));
+  const maxX = Math.max(...points.map((p) => p.x));
+  const minY = Math.min(...points.map((p) => p.y));
+  const maxY = Math.max(...points.map((p) => p.y));
+  const spanX = maxX - minX || 1;
+  const spanY = maxY - minY || 1;
+  return points
+    .map((p) => ({
+      x: (p.x - minX) / spanX,
+      y: (p.y - minY) / spanY,
+    }))
+    .sort((a, b) => a.x - b.x)
+    .map((p) => ({
+      x: Number.isFinite(p.x) ? Math.min(1, Math.max(0, p.x)) : 0,
+      y: Number.isFinite(p.y) ? Math.min(1, Math.max(0, p.y)) : 0.5,
+    }));
+};
+
+const computeCorrelation = (points: Array<{ x: number; y: number }>) => {
+  if (points.length < 2) return 0;
+  const n = points.length;
+  const meanX = points.reduce((acc, p) => acc + p.x, 0) / n;
+  const meanY = points.reduce((acc, p) => acc + p.y, 0) / n;
+  let num = 0;
+  let denomX = 0;
+  let denomY = 0;
+  points.forEach((p) => {
+    const dx = p.x - meanX;
+    const dy = p.y - meanY;
+    num += dx * dy;
+    denomX += dx * dx;
+    denomY += dy * dy;
+  });
+  const denom = Math.sqrt(denomX * denomY) || 1;
+  return num / denom;
 };
 
 const hasInversePressureTrend = (payload: ReportPayload) => {
@@ -27,75 +101,105 @@ const buildFallbackReport = (payload: ReportPayload) => {
   const title = payload.title || "Activity";
   const inversePressureTrend = hasInversePressureTrend(payload);
   const accuracy = clampAccuracy(payload.accuracyHint);
-  const high = typeof accuracy === "number" && accuracy >= 90;
-  const mid = typeof accuracy === "number" && accuracy >= 75;
-  const accuracyPercent = accuracy ?? (inversePressureTrend ? 78 : 72);
+  const points = Array.isArray(payload.parsedPoints) ? payload.parsedPoints.filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y)) : [];
+  const enoughData = points.length >= 3;
+  const normPoints = normalizePoints(points);
+  const correlation = enoughData ? computeCorrelation(points) : 0;
+  const trendDirection =
+    correlation > 0.2 ? "increasing" : correlation < -0.2 ? "decreasing" : inversePressureTrend ? "decreasing" : "flat";
+  const inferredAccuracy =
+    accuracy ??
+    (enoughData ? Math.max(40, Math.min(100, Math.round(Math.abs(correlation) * 90 + (inversePressureTrend ? 5 : 0)))) : null);
+  const accuracyNumber = typeof inferredAccuracy === "number" && Number.isFinite(inferredAccuracy) ? inferredAccuracy : null;
+  const high = typeof accuracyNumber === "number" && accuracyNumber >= 90;
+  const mid = typeof accuracyNumber === "number" && accuracyNumber >= 75;
 
-  return {
-    summary: high
-      ? `Great work! Your submission for "${title}" aligns with the expected trend - keep it up.`
-      : mid
-      ? `Submission for "${title}" is mostly aligned. Tighten up minor deviations and confirm against the SOP.`
-      : `Submission for "${title}" needs attention. Compare your plot and log to the expected trend and retry if needed.`,
-    objectiveAlignment: high
-      ? "Objective met; steps appear followed correctly."
-      : mid
-      ? "Objective mostly met; double-check safety checks and timing."
-      : "Objective not fully met; follow each SOP step carefully on the next attempt.",
-    trendAssessment: high
-      ? "Trend matches the expected shape with minimal deviation."
-      : mid
-      ? "Trend is close to expected, with small offsets or slope differences."
-      : "Trend differs from expected; recalibrate and rerun the trial.",
-    accuracyPercent,
-    possibleErrors: high
-      ? ["No obvious errors detected from your upload."]
+  const summary = enoughData
+    ? correlation > 0.7
+      ? `Your data for "${title}" shows a clear ${trendDirection} trend that matches expectations.`
+      : correlation > 0.4
+      ? `"${title}" data trends ${trendDirection} but with some noise; tighten consistency for a better match.`
+      : `Trend for "${title}" is weak/noisy; rerun with steadier sampling to capture the expected shape.`
+    : `Limited points uploaded for "${title}". Add more samples to see an accurate trend.`;
+
+  const objectiveAlignment = high
+    ? "Objective met; log and plot align with the expected pattern."
+    : mid
+    ? "Objective mostly met; reduce noise and verify steps."
+    : "Objective not yet met; follow SOP carefully and repeat the trial.";
+
+  const trendAssessment = enoughData
+    ? `Trend detected: ${trendDirection} (corr ${correlation.toFixed(2)}).`
+    : inversePressureTrend
+    ? "Expected inverse pressure-height trend; add more samples to verify."
+    : "Expected monotonic trend; more data needed to confirm.";
+
+  const possibleErrors =
+    enoughData && correlation > 0.4
+      ? ["Minor noise or offsets in measurements", "Sampling interval variation"]
       : [
           "Sensor noise or calibration drift",
-          "Incorrect sampling interval",
-          "Incomplete warm-up or stabilization period",
-        ],
-    improvementTips: high
-      ? ["Nice work - add brief notes about your setup to document this run."]
-      : [
-          "Repeat the trial with a steady setup and consistent timing.",
-          "Cross-check calculations in the log before plotting.",
-          "Re-run the activity following each SOP step carefully.",
-        ],
-    logInsights: payload.logText
+          "Gaps or spikes in sampling",
+          "Units or axis mix-up in the log/plot",
+        ];
+
+  const improvementTips =
+    enoughData && correlation > 0.4
       ? [
-          high
-            ? "Log values look stable and match the expected pattern."
-            : mid
-            ? "Log shows small deviations; verify any spikes or gaps."
-            : "Log shows deviations; check for spikes, gaps, or incorrect units before retrying.",
+          "Keep sampling interval consistent; avoid gaps.",
+          "Smooth sudden spikes; recheck sensor placement and wiring.",
+          "Re-run with the same setup to confirm repeatability.",
         ]
-      : ["No log excerpt provided."],
-    overlay: {
-      note: inversePressureTrend
-        ? high
-          ? "Expected trend: pressure decreases as height increases. Your data appears to follow this."
-          : "Expected trend: pressure decreases as height increases."
-        : high
-        ? "Expected trend overlay; your points appear to align."
-        : "Expected trend overlay is a generic guide. Adjust based on the SOP objective.",
-      points: inversePressureTrend
+      : [
+          "Collect more data points for a clearer trend.",
+          "Verify units and columns before plotting.",
+          "Repeat the trial after a quick sensor calibration.",
+        ];
+
+  const logInsights = enoughData
+    ? [
+        `Detected ${points.length} samples; trend is ${trendDirection} with correlation ${correlation.toFixed(2)}.`,
+        `Value range X: ${points.reduce((acc, p) => [Math.min(acc[0], p.x), Math.max(acc[1], p.x)], [points[0].x, points[0].x]).join(" to ")}, Y: ${points.reduce((acc, p) => [Math.min(acc[0], p.y), Math.max(acc[1], p.y)], [points[0].y, points[0].y]).join(" to ")}`,
+      ]
+    : ["Not enough numeric pairs were detected in the uploaded log. Add more rows with numeric columns."];
+
+  const overlayPoints =
+    normPoints.length >= 3
+      ? normPoints
+      : inversePressureTrend
         ? [
             { x: 0.0, y: 0.9 },
-            { x: 0.15, y: 0.8 },
-            { x: 0.35, y: 0.6 },
-            { x: 0.55, y: 0.45 },
-            { x: 0.75, y: 0.3 },
-            { x: 1.0, y: 0.15 },
+            { x: 0.2, y: 0.75 },
+            { x: 0.4, y: 0.55 },
+            { x: 0.6, y: 0.4 },
+            { x: 0.8, y: 0.25 },
+            { x: 1.0, y: 0.1 },
           ]
         : [
             { x: 0.0, y: 0.1 },
-            { x: 0.15, y: 0.2 },
-            { x: 0.35, y: 0.45 },
-            { x: 0.55, y: 0.65 },
-            { x: 0.75, y: 0.8 },
+            { x: 0.2, y: 0.25 },
+            { x: 0.4, y: 0.45 },
+            { x: 0.6, y: 0.65 },
+            { x: 0.8, y: 0.8 },
             { x: 1.0, y: 0.9 },
-          ],
+          ];
+
+  return {
+    summary,
+    objectiveAlignment,
+    trendAssessment,
+    accuracyPercent: accuracyNumber,
+    possibleErrors,
+    improvementTips,
+    logInsights,
+    overlay: {
+      note:
+        normPoints.length >= 3
+          ? "Overlay shows your uploaded points normalized to expected axes."
+          : inversePressureTrend
+            ? "Expected trend: pressure decreases as height increases."
+            : "Expected monotonic trend shown for reference.",
+      points: overlayPoints,
     },
   };
 };
@@ -135,13 +239,51 @@ const buildPrompt = (payload: ReportPayload) => {
     .join("\n");
 };
 
+const buildFallbackResponse = (payload: ReportPayload, detail: string, status = 200) =>
+  NextResponse.json({ report: buildFallbackReport(payload), fallback: true, detail }, { status });
+
+const extractContentString = (rawContent: unknown) => {
+  if (typeof rawContent === "string") return rawContent;
+  if (Array.isArray(rawContent)) {
+    return rawContent
+      .map((part) => {
+        if (typeof part === "string") return part;
+        if (typeof part === "object" && part !== null && "text" in part && typeof (part as { text?: unknown }).text === "string") {
+          return (part as { text: string }).text;
+        }
+        return "";
+      })
+      .join("");
+  }
+  if (typeof rawContent === "object" && rawContent !== null && "text" in rawContent) {
+    const value = (rawContent as { text?: unknown }).text;
+    return typeof value === "string" ? value : "";
+  }
+  return "";
+};
+
+const pickApiKey = (headerKey: string | null) => {
+  const candidates = [
+    process.env.OPENAI_API_KEY,
+    headerKey,
+    process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+  ].filter(Boolean) as string[];
+  const isMasked = (key: string) => key.includes("*") || key.includes("•");
+  const looksValid = (key: string) => /^sk-[a-zA-Z0-9]{20,}/.test(key) && !isMasked(key);
+  return candidates.find(looksValid) ?? candidates.find((k) => !isMasked(k)) ?? null;
+};
+
 export async function POST(req: Request) {
   try {
     const payload = (await req.json()) as ReportPayload;
-    const apiKey = process.env.OPENAI_API_KEY;
+    const headerKey = req.headers.get("x-openai-key")?.trim();
+    const apiKey = pickApiKey(headerKey);
     if (!apiKey) {
-      return NextResponse.json({ report: buildFallbackReport(payload), fallback: true }, { status: 200 });
+      console.error("[report] OPENAI_API_KEY missing or malformed");
+      return buildFallbackResponse(payload, "OPENAI_API_KEY missing or malformed", 500);
     }
+    // Debug trace without leaking the full key
+    console.debug("[report] using OPENAI_API_KEY prefix:", apiKey.slice(0, 8));
 
     const promptText = buildPrompt(payload);
     const userContent: Array<
@@ -177,18 +319,38 @@ export async function POST(req: Request) {
     });
 
     if (!openAiRes.ok) {
-      return NextResponse.json({ report: buildFallbackReport(payload), fallback: true }, { status: 200 });
+      let detail = "OpenAI request failed.";
+      try {
+        const err = await openAiRes.json();
+        detail = (err as { error?: { message?: string; code?: string } })?.error?.message ?? detail;
+      } catch {
+        try {
+          detail = await openAiRes.text();
+        } catch {
+          // ignore
+        }
+      }
+      console.error("[report] OpenAI error:", detail);
+      return buildFallbackResponse(payload, detail, openAiRes.status || 502);
     }
 
     const data = await openAiRes.json();
-    const content = data?.choices?.[0]?.message?.content ?? "";
+    const rawContent = data?.choices?.[0]?.message?.content;
+    const content = extractContentString(rawContent);
+    if (!content) {
+      console.error("[report] Empty content from OpenAI");
+      return buildFallbackResponse(payload, "Empty content from OpenAI", 502);
+    }
     try {
       const parsed = JSON.parse(content);
       return NextResponse.json({ report: parsed }, { status: 200 });
     } catch {
-      return NextResponse.json({ report: buildFallbackReport(payload), fallback: true }, { status: 200 });
+      console.error("[report] Invalid JSON from OpenAI:", content?.slice?.(0, 200) ?? "");
+      return buildFallbackResponse(payload, "Invalid JSON from OpenAI", 502);
     }
-  } catch {
-    return NextResponse.json({ report: buildFallbackReport({}), fallback: true }, { status: 200 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unexpected server error";
+    console.error("[report] Unhandled error:", message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
