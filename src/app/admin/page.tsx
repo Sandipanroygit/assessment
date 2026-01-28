@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, useTransition, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import type { CurriculumModule, Product } from "@/types";
 import { useRouter } from "next/navigation";
@@ -52,7 +52,6 @@ type SentimentFile = {
 };
 
 export default function AdminPage() {
-  const [profile, setProfile] = useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [authStatus, setAuthStatus] = useState<string | null>(null);
   const [signingOut, startSignOut] = useTransition();
@@ -128,7 +127,6 @@ export default function AdminPage() {
       if (!user) {
         setAuthStatus("Please sign in to access the admin dashboard.");
         setIsAdmin(false);
-        setProfile(null);
         router.push("/login");
         return;
       }
@@ -143,12 +141,9 @@ export default function AdminPage() {
           : null;
         setAuthStatus(`Unable to verify admin access: ${error.message}${setupHint ? ` â€” ${setupHint}` : ""}`);
         setIsAdmin(false);
-        setProfile({ full_name: user.user_metadata?.full_name ?? user.email ?? "User", role: undefined });
         return;
       }
-      const fallbackName = profileData?.full_name ?? user.user_metadata?.full_name ?? user.email ?? "User";
       const role = profileData?.role;
-      setProfile(profileData ? { ...profileData, full_name: fallbackName } : { full_name: fallbackName, role });
       const nextIsAdmin = role === "admin";
       setIsAdmin(nextIsAdmin);
       setAuthStatus(

@@ -508,7 +508,7 @@ export default function Home() {
         <div className="grid md:grid-cols-3 gap-6">
           {testimonials.map((item) => (
             <div key={item.name} className="glass-panel rounded-2xl p-6 space-y-3">
-              <p className="text-slate-300 text-sm leading-relaxed">"{item.quote}"</p>
+              <p className="text-slate-300 text-sm leading-relaxed">{`\"${item.quote}\"`}</p>
               <div className="pt-2 text-sm">
                 <p className="text-white font-semibold">{item.name}</p>
                 <p className="text-slate-400">{item.school}</p>
@@ -599,21 +599,21 @@ export default function Home() {
 
       {faqOpen && (
         <div className="fixed top-1/2 right-14 -translate-y-1/2 w-72 rounded-2xl border border-accent/20 bg-white/95 backdrop-blur-md shadow-2xl p-4 space-y-3 z-50">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-accent-strong">Quick FAQ</p>
-            <button
-              className="h-8 w-8 rounded-full border border-accent/20 text-accent-strong grid place-items-center bg-white"
-              onClick={() => setFaqOpen(false)}
-              aria-label="Close FAQ"
-            >
-              x
-            </button>
-          </div>
-          <div className="space-y-2 text-sm text-slate-700">
-            <div>
-              <p className="font-semibold text-foreground">How do I get a demo?</p>
-              <p>Use "Talk to sales" and we'll share a guided walkthrough.</p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-accent-strong">Quick FAQ</p>
+              <button
+                className="h-8 w-8 rounded-full border border-accent/20 text-accent-strong grid place-items-center bg-white"
+                onClick={() => setFaqOpen(false)}
+                aria-label="Close FAQ"
+              >
+                x
+              </button>
             </div>
+            <div className="space-y-2 text-sm text-slate-700">
+              <div>
+                <p className="font-semibold text-foreground">How do I get a demo?</p>
+                <p>{'Use "Talk to sales" and we\\'ll share a guided walkthrough.'}</p>
+              </div>
             <div>
               <p className="font-semibold text-foreground">Can students self-learn?</p>
               <p>Yes. Modules include videos, docs, and code for independent practice.</p>
@@ -701,7 +701,7 @@ export default function Home() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-accent-strong uppercase tracking-[0.2em]">Talk to sales</p>
-                <p className="text-lg font-semibold text-foreground">We'll reach out within a day</p>
+                <p className="text-lg font-semibold text-foreground">{`We'll reach out within a day`}</p>
               </div>
               <button
                 className="h-9 w-9 rounded-full border border-accent/20 text-accent-strong grid place-items-center bg-white"
@@ -739,7 +739,7 @@ export default function Home() {
             </div>
             {contactSubmitted && (
               <div className="rounded-xl bg-accent/10 border border-accent/20 px-3 py-2 text-sm text-accent-strong">
-                Got it! We'll email you with next steps.
+                {"Got it! We'll email you with next steps."}
               </div>
             )}
             <div className="flex items-center justify-between">
