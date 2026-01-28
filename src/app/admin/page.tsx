@@ -6,8 +6,6 @@ import { supabase } from "@/lib/supabaseClient";
 import type { CurriculumModule, Product } from "@/types";
 import { useRouter } from "next/navigation";
 import { dataUrlToFile, fetchCurriculumModules, fetchProducts, uploadFileToBucket } from "@/lib/supabaseData";
-
-type Profile = { full_name?: string; role?: string };
 type AdminUser = { id: string; full_name: string; role: string; displayRole: string; created_at?: string | null };
 
 const orderActions = ["Track status", "View receipts", "Export reports"];
