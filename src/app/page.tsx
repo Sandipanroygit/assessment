@@ -612,7 +612,7 @@ export default function Home() {
             <div className="space-y-2 text-sm text-slate-700">
               <div>
                 <p className="font-semibold text-foreground">How do I get a demo?</p>
-                <p>{'Use "Talk to sales" and we\\'ll share a guided walkthrough.'}</p>
+                <p>Use &quot;Talk to sales&quot; and we&apos;ll share a guided walkthrough.</p>
               </div>
             <div>
               <p className="font-semibold text-foreground">Can students self-learn?</p>
@@ -701,7 +701,7 @@ export default function Home() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-accent-strong uppercase tracking-[0.2em]">Talk to sales</p>
-                <p className="text-lg font-semibold text-foreground">{`We'll reach out within a day`}</p>
+                <p className="text-lg font-semibold text-foreground">We&apos;ll reach out within a day</p>
               </div>
               <button
                 className="h-9 w-9 rounded-full border border-accent/20 text-accent-strong grid place-items-center bg-white"
@@ -739,7 +739,7 @@ export default function Home() {
             </div>
             {contactSubmitted && (
               <div className="rounded-xl bg-accent/10 border border-accent/20 px-3 py-2 text-sm text-accent-strong">
-                {"Got it! We'll email you with next steps."}
+                Got it! We&apos;ll email you with next steps.
               </div>
             )}
             <div className="flex items-center justify-between">
