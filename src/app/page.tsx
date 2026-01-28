@@ -490,12 +490,9 @@ export default function Home() {
         </div>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((feature) => (
-            <div key={feature.title} className="glass-panel rounded-2xl p-6 space-y-3">
-              <div className="h-10 w-10 rounded-xl bg-accent/10 border border-accent/20 grid place-items-center text-accent-strong">
-                *
-              </div>
-              <h3 className="text-lg font-semibold text-white">{feature.title}</h3>
-              <p className="text-slate-300 text-sm">{feature.description}</p>
+            <div key={feature.title} className="glass-panel rounded-2xl p-6 space-y-2">
+              <h3 className="text-lg font-bold text-white">{feature.title}</h3>
+              <p className="text-slate-200 text-sm font-semibold">{feature.description}</p>
             </div>
           ))}
         </div>
