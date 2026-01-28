@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const isQuizPrompt = (message: string) => {
   const normalized = message.toLowerCase();
@@ -117,6 +122,31 @@ const buildOptions = (correct: string, distractors: string[]) => {
     answer: letters[answerIdx],
   };
 };
+
+const ensureLocalEnv = () => {
+  if (process.env.OPENAI_API_KEY) return;
+  const envPath = path.join(process.cwd(), ".env.local");
+  try {
+    const raw = fs.readFileSync(envPath, "utf8");
+    raw
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith("#"))
+      .forEach((line) => {
+        const idx = line.indexOf("=");
+        if (idx === -1) return;
+        const key = line.slice(0, idx).trim();
+        const val = line.slice(idx + 1).trim();
+        if (key === "OPENAI_API_KEY" && val) {
+          process.env.OPENAI_API_KEY = val;
+        }
+      });
+  } catch {
+    // ignore if missing
+  }
+};
+
+ensureLocalEnv();
 
 const pickApiKey = (headerKey: string | null) => {
   const candidates = [
