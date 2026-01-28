@@ -44,6 +44,30 @@ const shorten = (value: string, limit = 140) => (value.length > limit ? `${value
 
 const sample = <T,>(arr: T[]): T | null => (arr.length ? arr[Math.floor(Math.random() * arr.length)] : null);
 
+const buildWelcomeIntro = (contextText?: string) => {
+  const ctx = parseContext(contextText);
+  const title = ctx.title || "this activity";
+  const subject = ctx.subject || "drone learning";
+  const grade = ctx.grade ? ` for Grade ${ctx.grade}` : "";
+  const why = ctx.description
+    ? shorten(ctx.description, 220)
+    : "We are focusing on hands-on drone skills that blend programming, electronics, and physics.";
+  const learning = ctx.subject
+    ? `You will practice ${ctx.subject} with code, testing, and reflection.`
+    : "You will practice core STEM problem-solving with code, sensors, and safe flight steps.";
+  const realLife =
+    "This connects to real life through applications like inspection, disaster response, agriculture, and smart cities.";
+  const humanity =
+    "These skills help communities via safer logistics, faster aid, and better environmental monitoring.";
+
+  return [
+    `Welcome! Today we are exploring "${title}"${grade}, focused on ${subject}.`,
+    `Why this matters: ${why}`,
+    `What you will learn: ${learning}`,
+    `${realLife} ${humanity}`,
+  ].join(" ");
+};
+
 const shuffle = <T,>(arr: T[]): T[] => {
   const copy = [...arr];
   for (let i = copy.length - 1; i > 0; i -= 1) {
@@ -268,9 +292,11 @@ export async function POST(req: Request) {
       if (isQuizPrompt(message)) {
         return NextResponse.json({ reply: buildQuizFallback({ message, contextText }), fallback: true }, { status: 200 });
       }
-      const reply = contextText
+      const intro = buildWelcomeIntro(contextText);
+      const baseReply = contextText
         ? `${fallbackReply(message)}\n\nActivity context: ${contextText}`
         : fallbackReply(message);
+      const reply = `${intro}\n\n${baseReply}`;
       return NextResponse.json({ reply, fallback: true }, { status: 200 });
     }
 
@@ -296,6 +322,7 @@ export async function POST(req: Request) {
               + "Students can view and download published materials but cannot modify content, ensuring structured learning. "
               + "Learning outcomes include strong programming foundations, applying physics and math through experiments, logical thinking/debugging, engineering mindset, early STEM exposure, and connecting classroom knowledge to real-world systems. "
               + "Platform usage: students log in, pick grade/subject/activity, and access curated materials to learn at their own pace using downloads. "
+              + "Before any reply, open with a concise welcome tailored to the activity (use title, grade, subject, description when provided) that covers: why we are doing this activity, what the student will learn, how it relates to real life, and how it can help humanity. Keep that intro to 3-4 sentences, then continue the answer. "
               + "Maintain a friendly, professional, educational tone. Avoid backend/system details.",
           },
           ...(contextText
@@ -325,9 +352,12 @@ export async function POST(req: Request) {
           { status: 200 }
         );
       }
+      const intro = buildWelcomeIntro(contextText);
+      const baseReply = `${fallbackReply(message)} (Note: live assistant is temporarily unavailable.)`;
+      const reply = contextText ? `${intro}\n\n${baseReply}\n\nActivity context: ${contextText}` : `${intro}\n\n${baseReply}`;
       return NextResponse.json(
         {
-          reply: `${fallbackReply(message)} (Note: live assistant is temporarily unavailable.)`,
+          reply,
           fallback: true,
           detail,
         },
@@ -339,6 +369,10 @@ export async function POST(req: Request) {
     const reply = data?.choices?.[0]?.message?.content ?? "Assistant is available but no reply was generated.";
     return NextResponse.json({ reply });
   } catch {
-    return NextResponse.json({ reply: buildQuizFallback({ message: "", contextText }), fallback: true }, { status: 200 });
+    const intro = buildWelcomeIntro(contextText);
+    return NextResponse.json(
+      { reply: `${intro}\n\n${buildQuizFallback({ message: "", contextText })}`, fallback: true },
+      { status: 200 }
+    );
   }
 }

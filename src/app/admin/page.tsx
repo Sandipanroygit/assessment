@@ -63,6 +63,7 @@ export default function AdminPage() {
   const [sentimentFiles, setSentimentFiles] = useState<SentimentFile[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingCurriculumId, setEditingCurriculumId] = useState<string | null>(null);
+  const [deletingSentimentPath, setDeletingSentimentPath] = useState<string | null>(null);
   const curriculumEditRef = useRef<HTMLDivElement | null>(null);
   const [dataStatus, setDataStatus] = useState<string | null>(null);
   const [sentimentStatus, setSentimentStatus] = useState<string | null>(null);
@@ -250,6 +251,23 @@ export default function AdminPage() {
       cancelled = true;
     };
   }, [isAdmin, curriculumRows]);
+
+  const handleDeleteSentimentFile = async (file: SentimentFile) => {
+    if (deletingSentimentPath) return;
+    setDeletingSentimentPath(file.path);
+    setSentimentStatus(`Deleting ${file.fileName}...`);
+    try {
+      const { error } = await supabase.storage.from("curriculum-assets").remove([file.path]);
+      if (error) throw error;
+      setSentimentFiles((prev) => prev.filter((item) => item.path !== file.path));
+      setSentimentStatus(`Deleted ${file.fileName}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to delete file";
+      setSentimentStatus(`Delete failed: ${message}`);
+    } finally {
+      setDeletingSentimentPath(null);
+    }
+  };
 
   return (
     <main className="section-padding space-y-8">
@@ -551,7 +569,7 @@ export default function AdminPage() {
                 <th className="py-2 pr-3">Activity</th>
                 <th className="py-2 pr-3">Student</th>
                 <th className="py-2 pr-3">File</th>
-                <th className="py-2 pr-3">Download</th>
+                <th className="py-2 pr-3">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -576,6 +594,14 @@ export default function AdminPage() {
                       >
                         Open
                       </a>
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteSentimentFile(file)}
+                        disabled={deletingSentimentPath === file.path}
+                        className="ml-2 px-3 py-1 rounded-lg bg-rose-600 text-true-white font-semibold text-xs border border-rose-500 hover:bg-rose-500 hover:border-rose-400 disabled:opacity-50"
+                      >
+                        {deletingSentimentPath === file.path ? "Deleting..." : "Delete"}
+                      </button>
                     </td>
                   </tr>
                 ))

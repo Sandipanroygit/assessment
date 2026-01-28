@@ -1,0 +1,350 @@
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+      } catch (err) {
+        console.warn("Unable to fetch doc blob; downloading file directly.", err);
+        triggerDownload(docAsset.url, fileName);
+      }
+    } else {
+      console.warn("No SOP file available to open.");
+    }
+  };
+
+  useEffect(() => {
+    if (!module || submissions.length > 0) return;
+    try {
+      const stored = localStorage.getItem(progressStorageKey);
+      const parsed = stored ? JSON.parse(stored) : {};
+      const entry = parsed[String(module.id)] as ActivityProgressEntry | undefined;
+      setStoredUploads(entry?.uploads ?? null);
+      setMarkedDone(Boolean(entry?.completed));
+    } catch {
+      setStoredUploads(null);
+      setMarkedDone(false);
+    }
+  }, [module, submissions.length]);
+
+  useEffect(() => {
+    const active = selectedSubmissionId
+      ? submissions.find((submission) => submission.id === selectedSubmissionId) ?? submissions[submissions.length - 1]
+      : submissions[submissions.length - 1];
+    if (!active) {
+      setStoredUploads(null);
+      setReport(null);
+      setReportStatus(null);
+      setLogPlotPoints([]);
+      return;
+    }
+    setStoredUploads({
+      logFile: active.logName ? { name: active.logName, size: 0, type: "" } : undefined,
+      plotFile: active.plotName ? { name: active.plotName, size: 0, type: "" } : undefined,
+      uploadedAt: active.createdAt,
+    });
+    setReport(active.report ?? null);
+    setReportStatus(
+      active.report ? `Showing report from submission ${active.submissionNumber}.` : active.reportStatus ?? "Report pending.",
+    );
+    const loadLog = async () => {
+      if (!active.logUrl) {
+        setLogPlotPoints([]);
+        return;
+      }
+      try {
+        const res = await fetch(active.logUrl);
+        const text = await res.text();
+        const parsedPoints = parseLogPoints(text, codeDisplay, active.plotType || active.plotName || "");
+        setLogPlotPoints(parsedPoints);
+      } catch {
+        setLogPlotPoints([]);
+      }
+    };
+    loadLog();
+  }, [selectedSubmissionId, submissions, parseLogPoints, codeDisplay]);
+
+  const generateReport = useCallback(
+    async (source: { log: File; plot: File }) => {
+      if (!module) return null;
+      let nextReport: AiReport | null = null;
+      let usedFallback = false;
+      setReportLoading(true);
+      setReportStatus("Generating AI report...");
+      try {
+        const logText = await source.log.text();
+        const parsedPoints = parseLogPoints(logText, codeDisplay, source.plot.type || source.plot.name || "");
+        const accuracyHint = computeAccuracy(parsedPoints);
+        setLogPlotPoints(parsedPoints);
+        const sopAsset = module.assets.find((a) => a.type === "doc");
+        const clientKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+        const res = await fetch("/api/report", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(clientKey ? { "x-openai-key": clientKey } : {}),
+          },
+          body: JSON.stringify({
+            title: module.title,
+            subject: module.subject,
+            grade: module.grade,
+            description: module.description,
+            codeText: codeDisplay,
+            sopUrl: sopAsset?.url,
+            logText,
+            plotType: source.plot.type || source.plot.name,
+            parsedPoints: parsedPoints.slice(0, 500),
+            accuracyHint: typeof accuracyHint === "number" ? accuracyHint : undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data?.report) {
+          const detail = (data as { detail?: string; error?: string })?.detail ?? (data as { error?: string })?.error;
+          throw new Error(detail || "AI report unavailable.");
+        }
+        usedFallback = Boolean(data?.fallback);
+        if (usedFallback) {
+          // Do not surface dummy/best-effort report; keep UI honest
+          setReport(null);
+          setReportStatus(
+            (data as { detail?: string })?.detail
+              ? `AI unavailable; no report generated. Detail: ${(data as { detail?: string }).detail}`
+              : "AI unavailable; no report generated.",
+          );
+          setPdfStatus(null);
+          return null;
+        }
+        nextReport = data.report as AiReport;
+        setReport(nextReport);
+        setReportStatus(null);
+        setPdfStatus(null);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unable to generate AI report right now.";
+        setReportStatus(message);
+        if (!nextReport) {
+          setReport(null);
+        }
+        nextReport = null;
+      } finally {
+        setReportLoading(false);
+      }
+      return nextReport;
+    },
+    [module, codeDisplay, parseLogPoints],
+  );
+
+  const downloadReportPdf = useCallback(async () => {
+    if (!module || !report) return;
+    setDownloadingPdf(true);
+    setPdfStatus(null);
+    try {
+      const html = buildReportHtml({
+        logoSrc: pdfLogoSrc,
+        activityTitle: module.title,
+        activityDescription: module.description,
+        accuracyOverride: computedAccuracy ?? undefined,
+        subject: module.subject,
+        grade: module.grade,
+        studentName,
+        submissionTime: storedUploads?.uploadedAt ?? "Not recorded",
+        logFileName: storedUploads?.logFile?.name ?? logFile?.name ?? "",
+        plotFileName: storedUploads?.plotFile?.name ?? plotFile?.name ?? "",
+        report,
+      });
+      const printWindow = window.open("", "_blank", "width=900,height=1200");
+      if (!printWindow) {
+        throw new Error("Unable to open print window.");
+      }
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 500);
+    } catch {
+      setPdfStatus("Unable to generate PDF right now.");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }, [module, report, pdfLogoSrc, studentName, storedUploads, logFile, plotFile, computedAccuracy]);
+
+  const formatError = (err: unknown) => {
+    if (err instanceof Error) return err.message;
+    if (err && typeof err === "object" && "message" in err && typeof (err as { message?: unknown }).message === "string") {
+      return (err as { message: string }).message;
+    }
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return String(err ?? "Unknown error");
+    }
+  };
+
+  const deleteSubmission = async (submissionId: string) => {
+    if (!userId) {
+      setUploadStatus("Sign in to delete a submission.");
+      return;
+    }
+    const submission = submissions.find((item) => item.id === submissionId);
+    if (!submission) return;
+    setSavingUploads(true);
+    setUploadStatus("Deleting submission...");
+    let serverDeleted = false;
+    try {
+      if (!submission.id.startsWith("local-")) {
+        const attemptDelete = async (query: ReturnType<typeof supabase.from>) => {
+          const { data, error } = await query.select("id");
+          if (error) throw error;
+          return (Array.isArray(data) ? data.length : 0) ?? 0;
+        };
+
+        let deleteQuery = supabase
+          .from("activity_submissions")
+          .delete()
+          .eq("id", submissionId)
+          .eq("user_id", userId);
+        if (module?.id) {
+          deleteQuery = deleteQuery.eq("module_id", module.id);
+        }
+
+        let deletedCount = await attemptDelete(deleteQuery);
+        if (deletedCount === 0 && module?.id) {
+          // Fallback without module filter in case the stored row lacks module_id
+          deletedCount = await attemptDelete(
+            supabase.from("activity_submissions").delete().eq("id", submissionId).eq("user_id", userId),
+          );
+        }
+
+        if (deletedCount === 0) throw new Error("Delete blocked (no matching submission)");
+        serverDeleted = true;
+        const byBucket = bucketPathsFromUrls([submission.logUrl, submission.plotUrl]);
+        await Promise.all(
+          Object.entries(byBucket).map(async ([bucket, paths]) => {
+            if (!paths.length) return;
+            try {
+              await supabase.storage.from(bucket).remove(paths);
+            } catch {
+              // Best effort delete; ignore storage errors
+            }
+          }),
+        );
+      }
+      setSubmissions((prev) => {
+        const remaining = prev.filter((item) => item.id !== submissionId);
+        if (module) {
+          writeLocalSubmissionHistory(module.id, remaining);
+          writeHiddenSubmissions(module.id, readHiddenSubmissions(module.id).filter((id) => id !== submissionId));
+        }
+        const nextActive = remaining[remaining.length - 1] ?? null;
+        setSelectedSubmissionId(nextActive?.id ?? null);
+        setMarkedDone(Boolean(nextActive));
+        if (!nextActive) {
+          setReport(null);
+          setReportStatus(null);
+          setStoredUploads(null);
+          setLogPlotPoints([]);
+        } else {
+          setStoredUploads({
+            logFile: nextActive.logName ? { name: nextActive.logName, size: 0, type: "" } : undefined,
+            plotFile: nextActive.plotName ? { name: nextActive.plotName, size: 0, type: "" } : undefined,
+            uploadedAt: nextActive.createdAt,
+          });
+        }
+        return remaining;
+      });
+      setUploadStatus(serverDeleted ? "Submission deleted." : "Removed locally; server delete failed.");
+    } catch (err) {
+      const message = formatError(err);
+      // Hide locally so it doesn't reappear after refresh; surface message for transparency
+      setSubmissions((prev) => {
+        const remaining = prev.filter((item) => item.id !== submissionId);
+        if (module) {
+          const hidden = readHiddenSubmissions(module.id);
+          writeHiddenSubmissions(module.id, [...hidden, submissionId]);
+          writeLocalSubmissionHistory(module.id, remaining);
+        }
+        const nextActive = remaining[remaining.length - 1] ?? null;
+        setSelectedSubmissionId(nextActive?.id ?? null);
+        setMarkedDone(Boolean(nextActive));
+        if (!nextActive) {
+          setReport(null);
+          setReportStatus(null);
+          setStoredUploads(null);
+          setLogPlotPoints([]);
+        } else {
+          setStoredUploads({
+            logFile: nextActive.logName ? { name: nextActive.logName, size: 0, type: "" } : undefined,
+            plotFile: nextActive.plotName ? { name: nextActive.plotName, size: 0, type: "" } : undefined,
+            uploadedAt: nextActive.createdAt,
+          });
+        }
+        return remaining;
+      });
+      setUploadStatus(`Removed locally; could not delete on server: ${message}`);
+    } finally {
+      setSavingUploads(false);
+    }
+  };
+
+  const handleMarkDone = async () => {
+    if (!module) return;
+    if (!userId) {
+      setUploadStatus("Sign in to upload your submission.");
+      return;
+    }
+    if (!logFile || !plotFile) {
+      setUploadStatus("Add both the log file and plots to mark this activity as done.");
+      return;
+    }
+    setSavingUploads(true);
+    setUploadStatus("Generating AI report...");
+    const reportResult = await generateReport({ log: logFile, plot: plotFile });
+    setUploadStatus("Uploading files...");
+    try {
+      const pathPrefix = `${submissionPathPrefix}/${userId}/${module.id}`;
+      const [logUrl, plotUrl] = await Promise.all([
+        uploadFileToBucket({ bucket: submissionsBucket, file: logFile, pathPrefix }),
+        uploadFileToBucket({ bucket: submissionsBucket, file: plotFile, pathPrefix }),
+      ]);
+      const submissionNumber = nextSubmissionNumber;
+      const fallbackSubmission: ActivitySubmission = {
+        id: `local-${module.id}-${submissionNumber}-${Date.now()}`,
+        submissionNumber,
+        logUrl,
+        logName: logFile.name,
+        plotUrl,
+        plotName: plotFile.name,
+        plotType: plotFile.type || plotFile.name,
+        report: reportResult,
+        reportStatus: reportResult ? "Report ready" : "Report not generated",
+        createdAt: new Date().toISOString(),
+      };
+      const { data, error } = await supabase
+        .from("activity_submissions")
+        .insert({
+          user_id: userId,
+          module_id: module.id,
+          submission_number: submissionNumber,
+          log_url: logUrl,
+          log_name: logFile.name,
+          plot_url: plotUrl,
+          plot_name: plotFile.name,
+          plot_type: plotFile.type || plotFile.name,
+          report_json: reportResult ?? null,
+          report_status: reportResult ? "Report ready" : "Report not generated",
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      const saved = mapSubmissionRow(data as SubmissionRow, submissions.length);
+      const uploads = {
+        logFile: buildFileMeta(logFile),
+        plotFile: buildFileMeta(plotFile),
+        uploadedAt: saved.createdAt,
+      };
+      setSubmissions((prev) => [...prev.filter((item) => item.id !== fallbackSubmission.id), saved]);
+      setSelectedSubmissionId(saved.id);
+      setStoredUploads(uploads);
+      writeLocalSubmissionHistory(module.id, [...submissions.filter((item) => item.id !== fallbackSubmission.id), saved]);
+      try {
+        const stored = localStorage.getItem(progressStorageKey);
+        const parsed = stored ? JSON.parse(stored) : {};
+        const previous = parsed[String(module.id)] ?? {};
+        parsed[String(module.id)] = {
+          ...previous,

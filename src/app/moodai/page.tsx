@@ -10,6 +10,9 @@ import type { CurriculumModule } from "@/types";
 type Message = {
   role: "user" | "assistant";
   content: string;
+  variant?: "intro";
+  introTitle?: string;
+  introSections?: IntroSection[];
 };
 
 const getAudioContextCtor = () => {
@@ -69,88 +72,190 @@ type SentimentQuestion = {
   helper?: string;
 };
 
+type IntroSection = {
+  title: string;
+  paragraph?: string;
+  bullets?: string[];
+};
+
 const buildSentimentQuestions = (module?: CurriculumModule | null) => {
   const title = module?.title?.trim() || "this activity";
-  const subject = module?.subject?.trim() || "your course";
+  const subject = module?.subject?.trim() || "real-world skills";
   const desc = module?.description?.trim() || "";
-  const topic = module?.subject ? `${title} (${subject})` : title;
-  const spark = desc ? ` based on "${desc.slice(0, 120)}${desc.length > 120 ? "..." : ""}"` : "";
+  const descSnippet = desc ? `"${desc.slice(0, 120)}${desc.length > 120 ? "..." : ""}"` : "the activity goals";
+  const subjectLower = subject.toLowerCase();
 
   const questions: SentimentQuestion[] = [
     {
-      id: "excitement_level",
-      type: "scale",
-      prompt: `On a scale of 1-5, how ready do you feel to engage with ${topic}? (1 = not ready, 5 = fully ready)`,
-      helper: "Select the number that best represents your readiness.",
-    },
-    {
-      id: "current_mood",
+      id: "relevance_world",
       type: "mcq",
-      prompt: `Which statement best reflects your current mood about ${topic}?`,
+      prompt: `Which statement best describes why ${title} matters beyond class?`,
       options: [
-        { label: "A", text: "I feel positive and interested", value: 5 },
-        { label: "B", text: "I feel calm and steady", value: 4 },
-        { label: "C", text: "I feel uncertain and cautious", value: 3 },
-        { label: "D", text: "I feel tense or stressed", value: 1 },
+        { label: "A", text: `${title} links directly to real-world needs in ${subjectLower}.`, value: 5 },
+        { label: "B", text: "I see how these ideas could help in projects or hobbies I care about.", value: 4 },
+        { label: "C", text: "I'm still figuring out the real-world link but I'm open to it.", value: 3 },
+        { label: "D", text: "I don't yet see why this is useful outside assignments.", value: 1 },
       ],
     },
     {
-      id: "interest_area",
-      type: "text",
-      prompt: `What aspect of ${title} feels most meaningful or engaging to you, and why?`,
-    },
-    {
-      id: "intimidation",
+      id: "personal_connection",
       type: "mcq",
-      prompt: "Which part of the activity feels most challenging emotionally?",
+      prompt: `How strongly can you connect ${title} to something in your life right now?`,
       options: [
-        { label: "A", text: "Getting started and planning my approach", value: 2 },
-        { label: "B", text: "Writing or adjusting the code", value: 2 },
-        { label: "C", text: "Testing and troubleshooting issues", value: 2 },
-        { label: "D", text: "Explaining or presenting my work", value: 1 },
+        { label: "A", text: "I see a clear connection to something I'm doing or want to build.", value: 5 },
+        { label: "B", text: "I have a rough idea of how it relates to me.", value: 4 },
+        { label: "C", text: "Maybe tangentially, but it's fuzzy.", value: 3 },
+        { label: "D", text: "I don't see a connection yet.", value: 1 },
       ],
     },
     {
-      id: "first_word",
-      type: "text",
-      prompt: `In one word, how would you describe your overall feeling after reading the activity description${spark}?`,
-    },
-    {
-      id: "confidence_finish",
-      type: "scale",
-      prompt: `How confident do you feel about completing ${title} as planned? (1 = not confident, 5 = very confident)`,
-      helper: "Choose the confidence level that feels true right now.",
-    },
-    {
-      id: "ask_help",
-      type: "scale",
-      prompt: "How comfortable are you reaching out for support during this activity? (1 = not comfortable, 5 = very comfortable)",
-      helper: "How easy is it for you to ask for help?",
-    },
-    {
-      id: "worry",
-      type: "text",
-      prompt: `What is one concern you have about the subject matter or expectations in ${title}?`,
-    },
-    {
-      id: "work_vibe",
+      id: "confidence_apply",
       type: "mcq",
-      prompt: "Which description best matches how you typically feel while working on tasks like this?",
+      prompt: `How confident are you that you could apply what you learn in ${title} to a real scenario?`,
       options: [
-        { label: "A", text: "Calm and focused", value: 4 },
-        { label: "B", text: "Curious and exploratory", value: 4 },
-        { label: "C", text: "Neutral and steady", value: 3 },
-        { label: "D", text: "On edge or easily frustrated", value: 1 },
+        { label: "A", text: "Very confident—I can picture specific uses.", value: 5 },
+        { label: "B", text: "Fairly confident with a bit of guidance.", value: 4 },
+        { label: "C", text: "Somewhat unsure but willing to try.", value: 3 },
+        { label: "D", text: "Not confident about applying it yet.", value: 1 },
       ],
     },
     {
-      id: "overall_vibe",
-      type: "text",
-      prompt: `In one word, how would you summarize your overall mindset heading into ${title}?`,
+      id: "curiosity_description",
+      type: "mcq",
+      prompt: desc ? `The description mentions ${descSnippet}. Which matches your curiosity level?` : `How curious are you to explore this activity?`,
+      options: [
+        { label: "A", text: "I'm excited to dive deep and experiment.", value: 5 },
+        { label: "B", text: "Curious but I need a bit more clarity first.", value: 4 },
+        { label: "C", text: "Neutral but willing to try it out.", value: 3 },
+        { label: "D", text: "Not very curious right now.", value: 1 },
+      ],
+    },
+    {
+      id: "skills_focus",
+      type: "mcq",
+      prompt: `Which outcome are you most excited about while doing ${title}?`,
+      options: [
+        { label: "A", text: "Building practical skills I can reuse quickly.", value: 5 },
+        { label: "B", text: `Understanding the key ideas behind ${subjectLower}.`, value: 4 },
+        { label: "C", text: "Gaining confidence by finishing the task.", value: 3 },
+        { label: "D", text: "Just completing it to meet requirements.", value: 1 },
+      ],
+    },
+    {
+      id: "challenge_area",
+      type: "mcq",
+      prompt: desc ? "Based on the activity description, what feels most challenging?" : "What feels most challenging about this activity?",
+      options: [
+        { label: "A", text: "Understanding the concepts in the description.", value: 2 },
+        { label: "B", text: "Designing and organizing my approach.", value: 3 },
+        { label: "C", text: "Building or testing the solution.", value: 4 },
+        { label: "D", text: "Staying motivated through the steps.", value: 2 },
+      ],
+    },
+    {
+      id: "support_mindset",
+      type: "mcq",
+      prompt: "How likely are you to reach out if you get stuck during this activity?",
+      options: [
+        { label: "A", text: "Very likely—I know who or where to ask.", value: 5 },
+        { label: "B", text: "Likely after I try a few things first.", value: 4 },
+        { label: "C", text: "Maybe, but I'd hesitate.", value: 3 },
+        { label: "D", text: "Unlikely; I'd mostly work alone.", value: 2 },
+      ],
+    },
+    {
+      id: "impact_goal",
+      type: "mcq",
+      prompt: `What impact do you most want from completing ${title}?`,
+      options: [
+        { label: "A", text: "Create something useful I can show or share.", value: 5 },
+        { label: "B", text: `See how ${subjectLower} fits into real problems.`, value: 4 },
+        { label: "C", text: "Tick off the requirement and learn a bit.", value: 3 },
+        { label: "D", text: "Just get it done quickly.", value: 2 },
+      ],
+    },
+    {
+      id: "energy_state",
+      type: "mcq",
+      prompt: "Which best matches your current energy for this activity?",
+      options: [
+        { label: "A", text: "Energized and ready to start.", value: 5 },
+        { label: "B", text: "Steady and focused.", value: 4 },
+        { label: "C", text: "Warming up and need direction.", value: 3 },
+        { label: "D", text: "Running low on energy right now.", value: 1 },
+      ],
+    },
+    {
+      id: "reflection_style",
+      type: "mcq",
+      prompt: "How do you prefer to reflect on progress while doing this?",
+      options: [
+        { label: "A", text: "Sharing quick takeaways with someone else.", value: 5 },
+        { label: "B", text: "Jotting notes or snapshots as I go.", value: 4 },
+        { label: "C", text: "Thinking quietly about what worked.", value: 3 },
+        { label: "D", text: "I don't usually reflect until the end.", value: 2 },
+      ],
     },
   ];
 
   return questions.slice(0, 10);
+};
+
+const buildIntroPayload = (module?: CurriculumModule | null, questionCount = 10) => {
+  const title = module?.title?.trim() || "this activity";
+  const subject = module?.subject?.trim() || "real-world skills";
+  const desc = module?.description?.trim();
+  const descriptionSnippet = desc ? `${desc.slice(0, 280)}${desc.length > 280 ? "..." : ""}` : "Hands-on practice to build your skills before using real hardware.";
+  const subjectLower = subject.toLowerCase();
+
+  const sections: IntroSection[] = [
+    {
+      title: "Why You Are Doing This Activity",
+      paragraph: `See ${title} in action before you touch hardware, so you can visualize the ideas and tweak inputs safely.`,
+      bullets: [
+        `Experiment by adjusting variables to see immediate effects without risk.`,
+        `Build intuition first, so later lab time is confident and efficient.`,
+      ],
+    },
+    {
+      title: "What Concept This Activity Helps You Understand",
+      paragraph: descriptionSnippet,
+      bullets: [
+        `Connect ${title} to the core ideas of ${subjectLower}.`,
+        "Notice how changing inputs shifts outcomes and forces at play.",
+      ],
+    },
+    {
+      title: "Real Problems This Concept Helps You Solve",
+      bullets: [
+        `Design safer, more reliable solutions that depend on ${subjectLower}.`,
+        "Explain why systems behave the way they do under different conditions.",
+        "Spot risks early (instability, inefficiency, safety issues) and fix them.",
+      ],
+    },
+    {
+      title: "How You Can Relate This to Your Life",
+      bullets: [
+        "Map what you learn to a project, hobby, or workflow you already care about.",
+        "See the same principles in everyday tools, movement, or devices around you.",
+        "Use these insights to predict what happens when speed, scale, or load changes.",
+      ],
+    },
+    {
+      title: "What This Prepares You For",
+      bullets: [
+        "Moving from simulation to real builds with fewer surprises.",
+        "Applying formulas with meaning instead of guesswork.",
+        "Thinking like an engineer—connecting theory, safety, and design choices.",
+      ],
+    },
+  ];
+
+  return {
+    headline: `Activity Orientation: ${title}`,
+    summary: `Here's a quick orientation for ${title}. After this, you'll answer ${questionCount} quick multiple-choice questions.`,
+    sections,
+  };
 };
 
 const TYPING_DELAY_MS = 2000;
@@ -385,10 +490,14 @@ function MoodAIPageContent() {
     setSentimentQuestions(qs);
     setCurrentQuestionIdx(0);
     setQuestionFlowActive(true);
+    const intro = buildIntroPayload(module, qs.length);
     setMessages([
       {
         role: "assistant",
-        content: `I'll ask ${qs.length} quick questions to understand how you're feeling about ${module?.title ?? "this activity"}. There are no right or wrong answers - be honest so I can support you.`,
+        content: intro.summary,
+        variant: "intro",
+        introTitle: intro.headline,
+        introSections: intro.sections,
       },
       { role: "assistant", content: `Q1/${qs.length}: ${qs[0].prompt}` },
     ]);
@@ -571,6 +680,7 @@ function MoodAIPageContent() {
             {messages.map((msg, idx) => {
               const isUser = msg.role === "user";
               const avatarLetter = isUser ? initialFromName(studentName) : "M";
+              const isIntro = msg.variant === "intro" && Array.isArray(msg.introSections) && msg.introSections.length > 0;
               return (
                 <div
                   key={idx}
@@ -588,7 +698,39 @@ function MoodAIPageContent() {
                         : "bg-white/5 text-slate-100 border border-white/10"
                     } ${isUser ? "self-end" : ""}`}
                   >
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    {isIntro ? (
+                      <div className="space-y-4">
+                        {msg.introTitle && (
+                          <div className="rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-900/80 via-emerald-800/80 to-emerald-900/60 px-4 py-3 shadow-lg shadow-emerald-900/40">
+                            <h2 className="text-2xl md:text-3xl font-bold text-emerald-50 tracking-tight">{msg.introTitle}</h2>
+                            <p className="text-emerald-100 mt-1">{msg.content}</p>
+                          </div>
+                        )}
+                        <div className="grid gap-3">
+                          {msg.introSections?.map((section, sectionIdx) => (
+                            <div
+                              key={`${section.title}-${sectionIdx}`}
+                              className="rounded-xl border border-emerald-500/35 bg-emerald-950/70 px-4 py-3 shadow-md shadow-emerald-950/50"
+                            >
+                              <h3 className="text-lg md:text-xl font-semibold text-emerald-50">{section.title}</h3>
+                              {section.paragraph && <p className="text-emerald-100 mt-2">{section.paragraph}</p>}
+                              {section.bullets && section.bullets.length > 0 && (
+                                <ul className="mt-3 space-y-2 text-emerald-50">
+                                  {section.bullets.map((bullet, bulletIdx) => (
+                                    <li key={`${section.title}-bullet-${bulletIdx}`} className="flex gap-3 items-start">
+                                      <span className="mt-[9px] h-2 w-2 rounded-full bg-emerald-400 shadow-glow" aria-hidden />
+                                      <span>{bullet}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                    )}
                   </div>
                   {isUser && (
                     <div className="h-8 w-8 rounded-full border border-emerald-500/60 bg-emerald-500 text-xs text-white grid place-items-center font-semibold shadow-md">
