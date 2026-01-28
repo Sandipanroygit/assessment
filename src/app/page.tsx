@@ -508,7 +508,9 @@ export default function Home() {
         <div className="grid md:grid-cols-3 gap-6">
           {testimonials.map((item) => (
             <div key={item.name} className="glass-panel rounded-2xl p-6 space-y-3">
-              <p className="text-slate-300 text-sm leading-relaxed">{`\"${item.quote}\"`}</p>
+              <p className="text-slate-300 text-sm leading-relaxed">
+                &ldquo;{item.quote}&rdquo;
+              </p>
               <div className="pt-2 text-sm">
                 <p className="text-white font-semibold">{item.name}</p>
                 <p className="text-slate-400">{item.school}</p>
