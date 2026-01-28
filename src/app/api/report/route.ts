@@ -276,8 +276,8 @@ const pickApiKey = (headerKey: string | null) => {
 export async function POST(req: Request) {
   try {
     const payload = (await req.json()) as ReportPayload;
-    const headerKey = req.headers.get("x-openai-key")?.trim();
-    const apiKey = pickApiKey(headerKey);
+    const headerKey = req.headers.get("x-openai-key");
+    const apiKey = pickApiKey(headerKey?.trim() ?? null);
     if (!apiKey) {
       console.error("[report] OPENAI_API_KEY missing or malformed");
       return buildFallbackResponse(payload, "OPENAI_API_KEY missing or malformed", 500);
