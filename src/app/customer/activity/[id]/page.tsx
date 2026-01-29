@@ -496,14 +496,32 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
             },
           }),
         });
-        if (!res.ok) return [] as typeof quizQuestions;
-        const data = (await res.json()) as { reply?: string };
+        if (!res.ok) {
+          setQuizStatus("AI service unavailable. Please try again shortly.");
+          return [] as typeof quizQuestions;
+        }
+        const data = (await res.json()) as { reply?: string; fallback?: boolean; detail?: string };
         const reply = (data?.reply || "").trim();
-        if (!reply) return [] as typeof quizQuestions;
+
+        if (data?.fallback) {
+          setQuizStatus(data.detail || reply || "AI service unavailable.");
+          return [] as typeof quizQuestions;
+        }
+
+        if (!reply) {
+          setQuizStatus("No quiz returned by AI. Please retry.");
+          return [] as typeof quizQuestions;
+        }
+
         const parsed = parseQuiz(reply);
-        return parsed.length ? parsed : ([] as typeof quizQuestions);
+        if (!parsed.length) {
+          setQuizStatus("AI replied but no valid MCQs were parsed.");
+          return [] as typeof quizQuestions;
+        }
+        return parsed;
       } catch (err) {
         console.error("AI quiz generation failed", err);
+        setQuizStatus(getErrorMessage(err));
         return [] as typeof quizQuestions;
       }
     };
@@ -515,10 +533,10 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
       const aiQuestions = await generateAiQuiz();
       if (applyQuizQuestions(aiQuestions)) return;
 
-      setQuizStatus("Unable to generate quiz right now. Please try again in a bit.");
+      setQuizStatus((prev) => prev ?? "Unable to generate quiz right now. Please try again in a bit.");
     } catch (err) {
       console.error("Quiz generation failed", err);
-      setQuizStatus("Unable to generate quiz right now. Please try again in a bit.");
+      setQuizStatus(getErrorMessage(err));
     } finally {
       setGeneratingQuiz(false);
     }
@@ -1985,9 +2003,6 @@ export default function ActivityPage({ params }: { params: Promise<{ id: string 
                   </div>
                 )}
               </div>
-            )}
-            {quizStatus && !quizQuestions.length && !generatingQuiz && (
-              <div className="text-sm text-slate-300">{quizStatus}</div>
             )}
           </div>
         </section>

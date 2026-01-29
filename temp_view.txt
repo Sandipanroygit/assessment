@@ -72,12 +72,12 @@
         const accuracyHint = computeAccuracy(parsedPoints);
         setLogPlotPoints(parsedPoints);
         const sopAsset = module.assets.find((a) => a.type === "doc");
-        const clientKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+        const clientKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
         const res = await fetch("/api/report", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            ...(clientKey ? { "x-openai-key": clientKey } : {}),
+            ...(clientKey ? { "x-google-key": clientKey } : {}),
           },
           body: JSON.stringify({
             title: module.title,

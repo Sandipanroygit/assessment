@@ -34,9 +34,9 @@ const SYSTEM_PROMPT =
   + "Maintain a friendly, professional, educational tone. Avoid backend/system details.";
 
 export async function POST(req: Request) {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.GOOGLE_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: "Missing OPENAI_API_KEY" }, { status: 500 });
+    return NextResponse.json({ error: "Missing GOOGLE_API_KEY" }, { status: 500 });
   }
 
   let body: ProxyRequest;
@@ -52,33 +52,41 @@ export async function POST(req: Request) {
   }
 
   const contextText = buildContextText(body.context).slice(0, 2000);
-  const model = body.model && typeof body.model === "string" ? body.model : "gpt-4o-mini";
+  const model =
+    (body.model && typeof body.model === "string" && body.model) ||
+    process.env.GEMINI_MODEL ||
+    "gemini-2.5-flash";
 
   const payload = {
-    model,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...(contextText ? [{ role: "system" as const, content: `Use this activity context for your reply:\n${contextText}` }] : []),
-      { role: "user", content: message },
+    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: contextText ? `${contextText}\n\n${message}` : message }],
+      },
     ],
+    generationConfig: { temperature: 0.4 },
   };
 
-  const openAiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(payload),
-  });
+  const geminiRes = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
 
-  const data = await openAiRes.json().catch(() => null);
+  const data = await geminiRes.json().catch(() => null);
 
-  if (!openAiRes.ok) {
-    const detail = (data as { error?: { message?: string } })?.error?.message || "Failed to contact OpenAI";
-    return NextResponse.json({ error: "OpenAI request failed", detail }, { status: openAiRes.status });
+  if (!geminiRes.ok) {
+    const detail = (data as { error?: { message?: string } })?.error?.message || "Failed to contact Gemini";
+    return NextResponse.json({ error: "Gemini request failed", detail }, { status: geminiRes.status });
   }
 
-  const reply = (data as { choices?: Array<{ message?: { content?: string } }> })?.choices?.[0]?.message?.content ?? "";
-  return NextResponse.json({ reply, openAI: data });
+  const reply =
+    (data as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })?.candidates?.[0]?.content?.parts
+      ?.map((p) => p.text ?? "")
+      .join("") ?? "";
+  return NextResponse.json({ reply, gemini: data });
 }

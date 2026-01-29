@@ -10,20 +10,16 @@ const bcrypt = require("bcryptjs");
 const fs = require("fs");
 const path = require("path");
 const pdfParse = require("pdf-parse");
-const OpenAI = require("openai");
 
 // Load .env (optional, used mainly for PORT)
 dotenv.config();
 
 // 🔑 Hardcoded API key for now. KEEP IT IN QUOTES.
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-if (!OPENAI_API_KEY) {
-  throw new Error("Missing OPENAI_API_KEY");
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || process.env.OPENAI_API_KEY;
+if (!GOOGLE_API_KEY) {
+  throw new Error("Missing GOOGLE_API_KEY");
 }
-
-const openai = new OpenAI({
-  apiKey: OPENAI_API_KEY
-});
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 // Create Express app + config
 const app = express();
@@ -61,6 +57,45 @@ function buildTestKey(date, subject, name) {
   return `${date}__${subject.trim()}__${name.trim()}`;
 }
 
+// Call Gemini generateContent with text and optional inline data parts
+async function callGemini({ systemPrompt, userParts, temperature = 0.4, responseMimeType }) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GOOGLE_API_KEY}`;
+  const body = {
+    contents: [{ role: "user", parts: userParts }],
+    generationConfig: { temperature },
+  };
+  if (systemPrompt) {
+    body.systemInstruction = { parts: [{ text: systemPrompt }] };
+  }
+  if (responseMimeType) {
+    body.generationConfig.responseMimeType = responseMimeType;
+  }
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+
+  const textBody = await res.text();
+  let data;
+  try {
+    data = JSON.parse(textBody);
+  } catch {
+    data = null;
+  }
+
+  if (!res.ok) {
+    const detail = (data && data.error && data.error.message) || textBody || "Gemini request failed";
+    const err = new Error(detail);
+    err.status = res.status;
+    throw err;
+  }
+
+  const parts = data?.candidates?.[0]?.content?.parts || [];
+  return parts.map((p) => p.text || "").join("");
+}
+
 // ===============
 // D) HELPERS
 // ===============
@@ -96,39 +131,28 @@ async function extractTextFromFile(file) {
       }
     }
 
-    // 2) If image or scanned PDF: use OpenAI vision
+    // 2) If image or scanned PDF: use Gemini vision
     if (isImage || isPdf) {
       const base64 = buffer.toString("base64");
 
-      const resp = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
+      const summary = await callGemini({
+        systemPrompt:
+          "You are a teacher assistant. Read this document/image and summarise key concepts for making exam questions.",
+        userParts: [
           {
-            role: "system",
-            content:
-              "You are a teacher assistant. Read this document/image and summarise key concepts for making exam questions."
+            text:
+              "Extract the key concepts and important facts from this document/image. Return a concise outline only."
           },
           {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text:
-                  "Extract the key concepts and important facts from this document/image. Return a concise outline only."
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${file.mimetype};base64,${base64}`
-                }
-              }
-            ]
+            inlineData: {
+              mimeType: file.mimetype,
+              data: base64
+            }
           }
         ],
-        max_tokens: 800
+        temperature: 0.4
       });
 
-      const summary = resp.choices[0].message.content || "";
       return `VISION SUMMARY (${file.originalname}):\n` + summary;
     }
 
@@ -174,8 +198,8 @@ async function buildContextFromInputs({ topicsText, links, files }) {
   return parts.join("\n\n====================\n\n");
 }
 
-// Generate questions via OpenAI
-async function generateQuestionsWithOpenAI({
+// Generate questions via Gemini
+async function generateQuestionsWithGemini({
   subject,
   testName,
   numMcq,
@@ -224,21 +248,18 @@ Source material (topics + links + file extracts):
 ${contextText}
   `;
 
-  const resp = await openai.chat.completions.create({
-    model: "gpt-4.1-mini",
+  const raw = await callGemini({
+    systemPrompt,
+    userParts: [{ text: userPrompt }],
     temperature: 0.4,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt }
-    ]
+    responseMimeType: "application/json"
   });
 
-  const raw = resp.choices[0].message.content || "{}";
   let parsed;
   try {
     parsed = JSON.parse(raw);
   } catch (err) {
-    console.error("Failed to parse OpenAI JSON. Raw:", raw);
+    console.error("Failed to parse Gemini JSON. Raw:", raw);
     parsed = {
       questions: [
         {
@@ -417,7 +438,7 @@ app.post(
 
       const files = req.files || [];
 
-      const questions = await generateQuestionsWithOpenAI({
+      const questions = await generateQuestionsWithGemini({
         subject,
         testName,
         numMcq,

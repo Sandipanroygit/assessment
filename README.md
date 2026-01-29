@@ -48,7 +48,7 @@ Vercel is the recommended host for Next.js.
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `NEXT_PUBLIC_DEFAULT_ADMIN_EMAIL`
    - `NEXT_PUBLIC_SITE_URL` (used for Supabase email redirect)
-   - `OPENAI_API_KEY` (only needed for the chat assistant)
+   - `GOOGLE_API_KEY` (used for Gemini; required for the chat assistant)
 
 Optional:
 - `NEXT_PUBLIC_DEFAULT_ADMIN_NAME`

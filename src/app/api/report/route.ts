@@ -6,7 +6,7 @@ import path from "path";
 // Note: Next dev already loads .env.local, but on some setups the app route can miss it.
 // We only fall back to reading the file when the key is absent to avoid overriding a valid injected env.
 const ensureLocalEnv = () => {
-  if (process.env.OPENAI_API_KEY) return;
+  if (process.env.GOOGLE_API_KEY) return;
   const envPath = path.join(process.cwd(), ".env.local");
   try {
     const raw = fs.readFileSync(envPath, "utf8");
@@ -19,8 +19,8 @@ const ensureLocalEnv = () => {
         if (idx === -1) return;
         const key = line.slice(0, idx).trim();
         const val = line.slice(idx + 1).trim();
-        if (key === "OPENAI_API_KEY" && val) {
-          process.env.OPENAI_API_KEY = val;
+        if (key === "GOOGLE_API_KEY" && val) {
+          process.env.GOOGLE_API_KEY = val;
         }
       });
   } catch {
@@ -264,89 +264,95 @@ const extractContentString = (rawContent: unknown) => {
 
 const pickApiKey = (headerKey: string | null) => {
   const candidates = [
-    process.env.OPENAI_API_KEY,
+    process.env.GOOGLE_API_KEY,
     headerKey,
-    process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+    process.env.NEXT_PUBLIC_GOOGLE_API_KEY,
   ].filter(Boolean) as string[];
   const isMasked = (key: string) => key.includes("*") || key.includes("•");
-  const looksValid = (key: string) => /^sk-[a-zA-Z0-9]{20,}/.test(key) && !isMasked(key);
+  const looksValid = (key: string) => /^AIza[0-9A-Za-z_-]{20,}/.test(key) && !isMasked(key);
   return candidates.find(looksValid) ?? candidates.find((k) => !isMasked(k)) ?? null;
 };
 
 export async function POST(req: Request) {
   try {
     const payload = (await req.json()) as ReportPayload;
-    const headerKey = req.headers.get("x-openai-key");
+    const headerKey = req.headers.get("x-google-key") ?? req.headers.get("x-openai-key");
     const apiKey = pickApiKey(headerKey?.trim() ?? null);
     if (!apiKey) {
-      console.error("[report] OPENAI_API_KEY missing or malformed");
-      return buildFallbackResponse(payload, "OPENAI_API_KEY missing or malformed", 500);
+      console.error("[report] GOOGLE_API_KEY missing or malformed");
+      return buildFallbackResponse(payload, "GOOGLE_API_KEY missing or malformed", 500);
     }
     // Debug trace without leaking the full key
-    console.debug("[report] using OPENAI_API_KEY prefix:", apiKey.slice(0, 8));
+    console.debug("[report] using GOOGLE_API_KEY prefix:", apiKey.slice(0, 8));
 
     const promptText = buildPrompt(payload);
-    const userContent: Array<
-      | { type: "text"; text: string }
-      | { type: "image_url"; image_url: { url: string; detail?: "low" | "high" | "auto" } }
-    > = [{ type: "text", text: promptText }];
+    const userParts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [
+      { text: promptText },
+    ];
 
     if (payload.plotImageDataUrl) {
-      userContent.push({
-        type: "image_url",
-        image_url: { url: payload.plotImageDataUrl, detail: "low" },
-      });
+      const match = /^data:(.+);base64,(.+)$/.exec(payload.plotImageDataUrl);
+      if (match) {
+        userParts.push({
+          inlineData: { mimeType: match[1], data: match[2] },
+        });
+      }
     }
 
-    const openAiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are an evaluator for STEM lab activities. Produce concise, student-friendly feedback and a clear expected-trend overlay for learning.",
+    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [
+              {
+                text:
+                  "You are an evaluator for STEM lab activities. Produce concise, student-friendly feedback and a clear expected-trend overlay for learning.",
+              },
+            ],
           },
-          { role: "user", content: userContent },
-        ],
-      }),
-    });
+          contents: [{ role: "user", parts: userParts }],
+          generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
+        }),
+      }
+    );
 
-    if (!openAiRes.ok) {
-      let detail = "OpenAI request failed.";
+    if (!geminiRes.ok) {
+      let detail = "Gemini request failed.";
       try {
-        const err = await openAiRes.json();
+        const err = await geminiRes.json();
         detail = (err as { error?: { message?: string; code?: string } })?.error?.message ?? detail;
       } catch {
         try {
-          detail = await openAiRes.text();
+          detail = await geminiRes.text();
         } catch {
           // ignore
         }
       }
-      console.error("[report] OpenAI error:", detail);
-      return buildFallbackResponse(payload, detail, openAiRes.status || 502);
+      console.error("[report] Gemini error:", detail);
+      return buildFallbackResponse(payload, detail, geminiRes.status || 502);
     }
 
-    const data = await openAiRes.json();
-    const rawContent = data?.choices?.[0]?.message?.content;
-    const content = extractContentString(rawContent);
+    const data = await geminiRes.json();
+    const content = extractContentString(
+      (data as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })?.candidates?.[0]?.content
+        ?.parts
+    );
     if (!content) {
-      console.error("[report] Empty content from OpenAI");
-      return buildFallbackResponse(payload, "Empty content from OpenAI", 502);
+      console.error("[report] Empty content from Gemini");
+      return buildFallbackResponse(payload, "Empty content from Gemini", 502);
     }
     try {
       const parsed = JSON.parse(content);
       return NextResponse.json({ report: parsed }, { status: 200 });
     } catch {
-      console.error("[report] Invalid JSON from OpenAI:", content?.slice?.(0, 200) ?? "");
-      return buildFallbackResponse(payload, "Invalid JSON from OpenAI", 502);
+      console.error("[report] Invalid JSON from Gemini:", content?.slice?.(0, 200) ?? "");
+      return buildFallbackResponse(payload, "Invalid JSON from Gemini", 502);
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unexpected server error";

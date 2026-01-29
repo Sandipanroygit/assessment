@@ -311,13 +311,26 @@ function AssessmentPageContent() {
         setQuizStatus(detail);
         return;
       }
-      const reply = data?.reply ?? "No quiz generated.";
+      if (data?.fallback) {
+        const detail = data?.detail || data?.reply || "Assistant unavailable.";
+        setQuizStatus(detail);
+        return;
+      }
+      const reply = (data?.reply ?? "").trim();
+      if (!reply) {
+        setQuizStatus("No quiz generated.");
+        return;
+      }
       setQuizText(reply);
       const parsed = parseQuiz(reply);
+      if (!parsed.length) {
+        setQuizStatus("AI replied but no valid MCQs were parsed.");
+        return;
+      }
       setQuizQuestions(parsed);
       setQuizStatus(null);
-    } catch {
-      setQuizStatus("Unable to generate quiz right now.");
+    } catch (err) {
+      setQuizStatus(getErrorMessage(err));
     } finally {
       setGenerating(false);
     }
